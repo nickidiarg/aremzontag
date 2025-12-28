@@ -2,9 +2,11 @@ import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/useAuth";
 import { ArrowRight, Link2, Sparkles, Share2, Smartphone, Zap } from "lucide-react";
-
 const Index = () => {
-  const { user, loading } = useAuth();
+  const {
+    user,
+    loading
+  } = useAuth();
   const navigate = useNavigate();
 
   // Redirect logged in users to dashboard
@@ -12,9 +14,7 @@ const Index = () => {
     navigate("/dashboard");
     return null;
   }
-
-  return (
-    <div className="min-h-screen animated-gradient-bg">
+  return <div className="min-h-screen animated-gradient-bg">
       {/* Background glow effects */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none">
         <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[600px] bg-primary/10 rounded-full blur-3xl" />
@@ -29,7 +29,7 @@ const Index = () => {
             <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary to-accent flex items-center justify-center">
               <Link2 className="w-5 h-5 text-primary-foreground" />
             </div>
-            <span className="text-xl font-display font-bold text-foreground">LinkBio</span>
+            <span className="text-xl font-display font-bold text-foreground">Aremzon LinkBio</span>
           </div>
           
           <div className="flex items-center gap-3">
@@ -58,19 +58,25 @@ const Index = () => {
             </div>
 
             {/* Headline */}
-            <h1 className="text-4xl sm:text-5xl md:text-6xl font-display font-bold mb-6 slide-up" style={{ animationDelay: '0.1s' }}>
+            <h1 className="text-4xl sm:text-5xl md:text-6xl font-display font-bold mb-6 slide-up" style={{
+            animationDelay: '0.1s'
+          }}>
               <span className="text-foreground">One Link.</span>{" "}
               <span className="text-gradient-hero">Infinite Possibilities.</span>
             </h1>
 
             {/* Subheadline */}
-            <p className="text-lg md:text-xl text-muted-foreground mb-10 max-w-2xl mx-auto slide-up" style={{ animationDelay: '0.2s' }}>
+            <p className="text-lg md:text-xl text-muted-foreground mb-10 max-w-2xl mx-auto slide-up" style={{
+            animationDelay: '0.2s'
+          }}>
               Create your personal hub for all your links. Share your social profiles, portfolio, 
               and contact info with just one beautiful link.
             </p>
 
             {/* CTA Buttons */}
-            <div className="flex flex-col sm:flex-row items-center justify-center gap-4 slide-up" style={{ animationDelay: '0.3s' }}>
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-4 slide-up" style={{
+            animationDelay: '0.3s'
+          }}>
               <Link to="/auth">
                 <Button variant="hero" size="xl" className="group">
                   Create Your LinkBio
@@ -90,7 +96,9 @@ const Index = () => {
         <section className="container mx-auto px-4 py-16">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-4xl mx-auto">
             {/* Feature 1 */}
-            <div className="glass-card rounded-2xl p-6 text-center hover:scale-[1.02] transition-transform fade-in" style={{ animationDelay: '0.4s' }}>
+            <div className="glass-card rounded-2xl p-6 text-center hover:scale-[1.02] transition-transform fade-in" style={{
+            animationDelay: '0.4s'
+          }}>
               <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-primary/20 to-accent/20 flex items-center justify-center mx-auto mb-4">
                 <Smartphone className="w-7 h-7 text-primary" />
               </div>
@@ -101,7 +109,9 @@ const Index = () => {
             </div>
 
             {/* Feature 2 */}
-            <div className="glass-card rounded-2xl p-6 text-center hover:scale-[1.02] transition-transform fade-in" style={{ animationDelay: '0.5s' }}>
+            <div className="glass-card rounded-2xl p-6 text-center hover:scale-[1.02] transition-transform fade-in" style={{
+            animationDelay: '0.5s'
+          }}>
               <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-primary/20 to-accent/20 flex items-center justify-center mx-auto mb-4">
                 <Zap className="w-7 h-7 text-primary" />
               </div>
@@ -112,7 +122,9 @@ const Index = () => {
             </div>
 
             {/* Feature 3 */}
-            <div className="glass-card rounded-2xl p-6 text-center hover:scale-[1.02] transition-transform fade-in" style={{ animationDelay: '0.6s' }}>
+            <div className="glass-card rounded-2xl p-6 text-center hover:scale-[1.02] transition-transform fade-in" style={{
+            animationDelay: '0.6s'
+          }}>
               <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-primary/20 to-accent/20 flex items-center justify-center mx-auto mb-4">
                 <Share2 className="w-7 h-7 text-primary" />
               </div>
@@ -135,8 +147,6 @@ const Index = () => {
           </div>
         </footer>
       </main>
-    </div>
-  );
+    </div>;
 };
-
 export default Index;
