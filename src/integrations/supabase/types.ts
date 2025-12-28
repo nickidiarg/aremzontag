@@ -14,6 +14,39 @@ export type Database = {
   }
   public: {
     Tables: {
+      nfc_cards: {
+        Row: {
+          card_id: string
+          claimed_at: string | null
+          created_at: string
+          id: string
+          is_active: boolean
+          linked_user_id: string | null
+          secret_pin: string
+          updated_at: string
+        }
+        Insert: {
+          card_id: string
+          claimed_at?: string | null
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          linked_user_id?: string | null
+          secret_pin: string
+          updated_at?: string
+        }
+        Update: {
+          card_id?: string
+          claimed_at?: string | null
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          linked_user_id?: string | null
+          secret_pin?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           avatar_url: string | null

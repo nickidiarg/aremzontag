@@ -24,8 +24,13 @@ interface Profile {
   tiktok_link: string | null;
 }
 
-const PublicProfile = () => {
-  const { username } = useParams<{ username: string }>();
+interface PublicProfileProps {
+  username?: string;
+}
+
+const PublicProfile = ({ username: propUsername }: PublicProfileProps) => {
+  const { username: paramUsername } = useParams<{ username: string }>();
+  const username = propUsername || paramUsername;
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
