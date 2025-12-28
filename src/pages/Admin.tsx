@@ -1,174 +1,62 @@
 import { useState, useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom";
-import { useAuth } from "@/hooks/useAuth";
+import { useAdminCheck } from "@/hooks/useAdminCheck";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Link2,
   LogOut,
   Loader2,
-  Plus,
-  Copy,
-  Check,
-  CreditCard,
   Shield,
+  Package,
+  Users,
 } from "lucide-react";
-
-const ADMIN_EMAIL = "admin@example.com";
-
-interface GeneratedCard {
-  card_id: string;
-  secret_pin: string;
-}
-
-interface NfcCard {
-  id: string;
-  card_id: string;
-  secret_pin: string;
-  is_active: boolean;
-  linked_user_id: string | null;
-  claimed_at: string | null;
-  created_at: string;
-}
-
-const generateCardId = (): string => {
-  const chars = "abcdefghijklmnopqrstuvwxyz0123456789";
-  let result = "card-";
-  for (let i = 0; i < 5; i++) {
-    result += chars.charAt(Math.floor(Math.random() * chars.length));
-  }
-  return result;
-};
-
-const generatePin = (): string => {
-  return Math.floor(100000 + Math.random() * 900000).toString();
-};
+import InventoryTab from "@/components/admin/InventoryTab";
+import ManageUsersTab from "@/components/admin/ManageUsersTab";
 
 const Admin = () => {
-  const { user, loading: authLoading, signOut } = useAuth();
+  const { isAdmin, loading, user } = useAdminCheck();
   const navigate = useNavigate();
   const { toast } = useToast();
-  const [loading, setLoading] = useState(true);
-  const [generating, setGenerating] = useState(false);
-  const [cardCount, setCardCount] = useState<string>("");
-  const [showGenerator, setShowGenerator] = useState(false);
-  const [generatedCards, setGeneratedCards] = useState<GeneratedCard[]>([]);
-  const [allCards, setAllCards] = useState<NfcCard[]>([]);
-  const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [impersonating, setImpersonating] = useState(false);
 
   useEffect(() => {
-    if (!authLoading) {
+    if (!loading) {
       if (!user) {
         navigate("/auth");
-      } else if (user.email !== ADMIN_EMAIL) {
+      } else if (!isAdmin) {
         toast({
           title: "Access Denied",
           description: "You don't have permission to access this page.",
           variant: "destructive",
         });
         navigate("/dashboard");
-      } else {
-        setLoading(false);
-        fetchAllCards();
       }
     }
-  }, [user, authLoading, navigate]);
-
-  const fetchAllCards = async () => {
-    const { data, error } = await supabase
-      .from("nfc_cards")
-      .select("*")
-      .order("created_at", { ascending: false });
-
-    if (!error && data) {
-      setAllCards(data);
-    }
-  };
-
-  const handleBulkGenerate = async () => {
-    const count = parseInt(cardCount);
-    if (isNaN(count) || count < 1 || count > 100) {
-      toast({
-        title: "Invalid Count",
-        description: "Please enter a number between 1 and 100.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    setGenerating(true);
-    const newCards: GeneratedCard[] = [];
-
-    // Generate unique cards
-    for (let i = 0; i < count; i++) {
-      newCards.push({
-        card_id: generateCardId(),
-        secret_pin: generatePin(),
-      });
-    }
-
-    // Insert into database
-    const { error } = await supabase.from("nfc_cards").insert(
-      newCards.map((card) => ({
-        card_id: card.card_id,
-        secret_pin: card.secret_pin,
-        is_active: true,
-      }))
-    );
-
-    if (error) {
-      toast({
-        title: "Error",
-        description: "Failed to generate cards. Some IDs might already exist.",
-        variant: "destructive",
-      });
-    } else {
-      setGeneratedCards(newCards);
-      toast({
-        title: "Success!",
-        description: `Generated ${count} new NFC cards.`,
-      });
-      fetchAllCards();
-    }
-
-    setGenerating(false);
-    setCardCount("");
-    setShowGenerator(false);
-  };
-
-  const copyToClipboard = (text: string, id: string) => {
-    navigator.clipboard.writeText(text);
-    setCopiedId(id);
-    setTimeout(() => setCopiedId(null), 2000);
-  };
-
-  const copyAllGenerated = () => {
-    const text = generatedCards
-      .map((card) => `${card.card_id}\t${card.secret_pin}`)
-      .join("\n");
-    navigator.clipboard.writeText(text);
-    toast({
-      title: "Copied!",
-      description: "All card data copied to clipboard.",
-    });
-  };
+  }, [user, loading, isAdmin, navigate]);
 
   const handleSignOut = async () => {
-    await signOut();
+    await supabase.auth.signOut();
     navigate("/");
   };
 
-  if (authLoading || loading) {
+  const handleImpersonate = async (userId: string, username: string) => {
+    // Store admin session info before impersonating
+    localStorage.setItem("admin_impersonating", "true");
+    localStorage.setItem("impersonated_username", username);
+    
+    toast({
+      title: "Impersonation Mode",
+      description: `Viewing as @${username}. Visit /admin to exit.`,
+    });
+    
+    // Navigate to the user's profile edit view
+    navigate(`/profile/${username}`);
+  };
+
+  if (loading || !isAdmin) {
     return (
       <div className="min-h-screen animated-gradient-bg flex items-center justify-center">
         <Loader2 className="w-8 h-8 animate-spin text-primary" />
@@ -209,188 +97,38 @@ const Admin = () => {
 
       {/* Main Content */}
       <main className="relative z-10 container mx-auto px-4 py-8">
-        <div className="max-w-4xl mx-auto">
+        <div className="max-w-5xl mx-auto">
           {/* Page Title */}
           <div className="mb-8">
             <h1 className="text-3xl font-display font-bold text-foreground mb-2">
-              NFC Card Inventory
+              Admin Dashboard
             </h1>
             <p className="text-muted-foreground">
-              Manage and generate NFC cards for your users.
+              Manage users, inventory, and system settings.
             </p>
           </div>
 
-          {/* Stats */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
-            <div className="glass-card rounded-xl p-4">
-              <p className="text-muted-foreground text-sm">Total Cards</p>
-              <p className="text-2xl font-display font-bold text-foreground">
-                {allCards.length}
-              </p>
-            </div>
-            <div className="glass-card rounded-xl p-4">
-              <p className="text-muted-foreground text-sm">Claimed</p>
-              <p className="text-2xl font-display font-bold text-green-400">
-                {allCards.filter((c) => c.linked_user_id).length}
-              </p>
-            </div>
-            <div className="glass-card rounded-xl p-4">
-              <p className="text-muted-foreground text-sm">Available</p>
-              <p className="text-2xl font-display font-bold text-primary">
-                {allCards.filter((c) => !c.linked_user_id).length}
-              </p>
-            </div>
-          </div>
+          {/* Tabs */}
+          <Tabs defaultValue="inventory" className="space-y-6">
+            <TabsList className="bg-secondary/50 border border-border">
+              <TabsTrigger value="inventory" className="flex items-center gap-2">
+                <Package className="w-4 h-4" />
+                Inventory
+              </TabsTrigger>
+              <TabsTrigger value="users" className="flex items-center gap-2">
+                <Users className="w-4 h-4" />
+                Manage Users
+              </TabsTrigger>
+            </TabsList>
 
-          {/* Generate Section */}
-          <div className="glass-card rounded-2xl p-6 mb-8">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-xl font-display font-semibold text-foreground flex items-center gap-2">
-                <CreditCard className="w-5 h-5" />
-                Generate Cards
-              </h2>
-              {!showGenerator && (
-                <Button variant="hero" onClick={() => setShowGenerator(true)}>
-                  <Plus className="w-4 h-4 mr-2" />
-                  Bulk Generate
-                </Button>
-              )}
-            </div>
+            <TabsContent value="inventory">
+              <InventoryTab />
+            </TabsContent>
 
-            {showGenerator && (
-              <div className="flex items-center gap-4">
-                <Input
-                  type="number"
-                  placeholder="How many cards? (1-100)"
-                  value={cardCount}
-                  onChange={(e) => setCardCount(e.target.value)}
-                  min="1"
-                  max="100"
-                  className="max-w-xs"
-                />
-                <Button
-                  variant="hero"
-                  onClick={handleBulkGenerate}
-                  disabled={generating}
-                >
-                  {generating ? (
-                    <Loader2 className="w-4 h-4 animate-spin mr-2" />
-                  ) : null}
-                  Generate
-                </Button>
-                <Button
-                  variant="ghost"
-                  onClick={() => {
-                    setShowGenerator(false);
-                    setCardCount("");
-                  }}
-                >
-                  Cancel
-                </Button>
-              </div>
-            )}
-
-            {/* Newly Generated Cards */}
-            {generatedCards.length > 0 && (
-              <div className="mt-6">
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-lg font-semibold text-foreground">
-                    Newly Generated Cards
-                  </h3>
-                  <Button variant="glass" size="sm" onClick={copyAllGenerated}>
-                    <Copy className="w-4 h-4 mr-2" />
-                    Copy All
-                  </Button>
-                </div>
-                <div className="rounded-xl border border-border overflow-hidden">
-                  <Table>
-                    <TableHeader>
-                      <TableRow className="bg-secondary/50">
-                        <TableHead>Card ID</TableHead>
-                        <TableHead>Secret PIN</TableHead>
-                        <TableHead className="w-20">Copy</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {generatedCards.map((card) => (
-                        <TableRow key={card.card_id}>
-                          <TableCell className="font-mono text-primary">
-                            {card.card_id}
-                          </TableCell>
-                          <TableCell className="font-mono">
-                            {card.secret_pin}
-                          </TableCell>
-                          <TableCell>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() =>
-                                copyToClipboard(
-                                  `${card.card_id}\t${card.secret_pin}`,
-                                  card.card_id
-                                )
-                              }
-                            >
-                              {copiedId === card.card_id ? (
-                                <Check className="w-4 h-4 text-green-400" />
-                              ) : (
-                                <Copy className="w-4 h-4" />
-                              )}
-                            </Button>
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* All Cards Table */}
-          <div className="glass-card rounded-2xl p-6">
-            <h2 className="text-xl font-display font-semibold text-foreground mb-4">
-              All Cards
-            </h2>
-            <div className="rounded-xl border border-border overflow-hidden">
-              <Table>
-                <TableHeader>
-                  <TableRow className="bg-secondary/50">
-                    <TableHead>Card ID</TableHead>
-                    <TableHead>PIN</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Created</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {allCards.map((card) => (
-                    <TableRow key={card.id}>
-                      <TableCell className="font-mono text-primary">
-                        {card.card_id}
-                      </TableCell>
-                      <TableCell className="font-mono">
-                        {card.secret_pin}
-                      </TableCell>
-                      <TableCell>
-                        <span
-                          className={`px-2 py-1 rounded-full text-xs font-medium ${
-                            card.linked_user_id
-                              ? "bg-green-500/20 text-green-400"
-                              : "bg-blue-500/20 text-blue-400"
-                          }`}
-                        >
-                          {card.linked_user_id ? "Claimed" : "Available"}
-                        </span>
-                      </TableCell>
-                      <TableCell className="text-muted-foreground text-sm">
-                        {new Date(card.created_at).toLocaleDateString()}
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
-          </div>
+            <TabsContent value="users">
+              <ManageUsersTab onImpersonate={handleImpersonate} />
+            </TabsContent>
+          </Tabs>
         </div>
       </main>
     </div>

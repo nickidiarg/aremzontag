@@ -9,11 +9,13 @@ import {
   ArrowLeft,
   Loader2,
   Link2,
-  ExternalLink
+  ExternalLink,
+  Eye
 } from "lucide-react";
 
 interface Profile {
   id: string;
+  user_id: string;
   username: string;
   display_name: string | null;
   bio: string | null;
@@ -22,6 +24,15 @@ interface Profile {
   whatsapp_link: string | null;
   instagram_link: string | null;
   tiktok_link: string | null;
+  views: number;
+}
+
+interface CustomLink {
+  id: string;
+  title: string;
+  url: string;
+  position: number;
+  is_active: boolean;
 }
 
 interface PublicProfileProps {
@@ -32,6 +43,7 @@ const PublicProfile = ({ username: propUsername }: PublicProfileProps) => {
   const { username: paramUsername } = useParams<{ username: string }>();
   const username = propUsername || paramUsername;
   const [profile, setProfile] = useState<Profile | null>(null);
+  const [customLinks, setCustomLinks] = useState<CustomLink[]>([]);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
 
@@ -53,6 +65,21 @@ const PublicProfile = ({ username: propUsername }: PublicProfileProps) => {
 
       if (data) {
         setProfile(data);
+        
+        // Increment view count
+        await supabase.rpc("increment_profile_views", { profile_username: username });
+        
+        // Fetch custom links
+        const { data: linksData } = await supabase
+          .from("custom_links")
+          .select("*")
+          .eq("user_id", data.user_id)
+          .eq("is_active", true)
+          .order("position", { ascending: true });
+        
+        if (linksData) {
+          setCustomLinks(linksData);
+        }
       } else {
         setNotFound(true);
       }
@@ -96,7 +123,7 @@ const PublicProfile = ({ username: propUsername }: PublicProfileProps) => {
     );
   }
 
-  const links = [
+  const builtInLinks = [
     {
       label: "Call Me",
       href: profile?.phone_number ? `tel:${profile.phone_number}` : null,
@@ -131,7 +158,7 @@ const PublicProfile = ({ username: propUsername }: PublicProfileProps) => {
     },
   ];
 
-  const visibleLinks = links.filter((link) => link.show);
+  const visibleBuiltInLinks = builtInLinks.filter((link) => link.show);
 
   return (
     <div className="min-h-screen animated-gradient-bg">
@@ -170,9 +197,15 @@ const PublicProfile = ({ username: propUsername }: PublicProfileProps) => {
           </h1>
           
           {/* Username */}
-          <p className="text-muted-foreground text-sm mb-4">
+          <p className="text-muted-foreground text-sm mb-2">
             @{profile?.username}
           </p>
+
+          {/* Views Badge */}
+          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-primary/10 text-primary text-xs font-medium mb-4">
+            <Eye className="w-3.5 h-3.5" />
+            {(profile?.views || 0).toLocaleString()} views
+          </div>
 
           {/* Bio */}
           {profile?.bio && (
@@ -184,7 +217,8 @@ const PublicProfile = ({ username: propUsername }: PublicProfileProps) => {
 
         {/* Links */}
         <div className="space-y-3">
-          {visibleLinks.map((link, index) => (
+          {/* Built-in Social Links */}
+          {visibleBuiltInLinks.map((link, index) => (
             <a
               key={link.label}
               href={link.href || '#'}
@@ -203,7 +237,27 @@ const PublicProfile = ({ username: propUsername }: PublicProfileProps) => {
             </a>
           ))}
 
-          {visibleLinks.length === 0 && (
+          {/* Custom Links */}
+          {customLinks.map((link, index) => (
+            <a
+              key={link.id}
+              href={link.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="block slide-up"
+              style={{ animationDelay: `${0.1 + (visibleBuiltInLinks.length + index) * 0.1}s` }}
+            >
+              <Button variant="social" className="justify-between">
+                <span className="flex items-center gap-3">
+                  <Link2 className="w-5 h-5" />
+                  {link.title}
+                </span>
+                <ExternalLink className="w-4 h-4 text-muted-foreground" />
+              </Button>
+            </a>
+          ))}
+
+          {visibleBuiltInLinks.length === 0 && customLinks.length === 0 && (
             <div className="text-center py-8 text-muted-foreground">
               <p>No links added yet.</p>
             </div>

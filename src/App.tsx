@@ -9,6 +9,7 @@ import Dashboard from "./pages/Dashboard";
 import PublicProfile from "./pages/PublicProfile";
 import CardRoute from "./pages/CardRoute";
 import Admin from "./pages/Admin";
+import Demo from "./pages/Demo";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -26,6 +27,7 @@ const App = () => (
           <Route path="/profile/:username" element={<PublicProfile />} />
           <Route path="/c/:cardId" element={<CardRoute />} />
           <Route path="/admin" element={<Admin />} />
+          <Route path="/demo" element={<Demo />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>
