@@ -16,7 +16,8 @@ import {
   Link2,
   Loader2,
   Copy,
-  Check
+  Check,
+  CreditCard
 } from "lucide-react";
 
 interface Profile {
@@ -31,11 +32,18 @@ interface Profile {
   tiktok_link: string | null;
 }
 
+interface NfcCard {
+  card_id: string;
+  is_active: boolean;
+  claimed_at: string | null;
+}
+
 const Dashboard = () => {
   const { user, loading: authLoading, signOut } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
   const [profile, setProfile] = useState<Profile | null>(null);
+  const [linkedCard, setLinkedCard] = useState<NfcCard | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -58,8 +66,23 @@ const Dashboard = () => {
   useEffect(() => {
     if (user) {
       fetchProfile();
+      fetchLinkedCard();
     }
   }, [user]);
+
+  const fetchLinkedCard = async () => {
+    if (!user) return;
+    
+    const { data, error } = await supabase
+      .from("nfc_cards")
+      .select("card_id, is_active, claimed_at")
+      .eq("linked_user_id", user.id)
+      .maybeSingle();
+
+    if (!error && data) {
+      setLinkedCard(data);
+    }
+  };
 
   const fetchProfile = async () => {
     try {
@@ -203,7 +226,31 @@ const Dashboard = () => {
             </div>
           </div>
 
-          {/* Profile Form */}
+          {/* Linked NFC Card */}
+          {linkedCard && (
+            <div className="glass-card rounded-2xl p-6 mb-6">
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 rounded-xl bg-gradient-primary flex items-center justify-center">
+                  <CreditCard className="w-6 h-6 text-primary-foreground" />
+                </div>
+                <div className="flex-1">
+                  <h3 className="text-lg font-display font-semibold text-foreground">
+                    Linked NFC Card
+                  </h3>
+                  <p className="text-muted-foreground text-sm">
+                    Card ID: <span className="text-primary font-mono">{linkedCard.card_id}</span>
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Claimed on {new Date(linkedCard.claimed_at!).toLocaleDateString()}
+                  </p>
+                </div>
+                <div className={`px-3 py-1 rounded-full text-xs font-medium ${linkedCard.is_active ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'}`}>
+                  {linkedCard.is_active ? 'Active' : 'Inactive'}
+                </div>
+              </div>
+            </div>
+          )}
+
           <div className="glass-card rounded-2xl p-6 md:p-8 space-y-6">
             {/* Avatar Preview */}
             <div className="flex items-center gap-4">
