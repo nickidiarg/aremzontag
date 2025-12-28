@@ -14,6 +14,39 @@ export type Database = {
   }
   public: {
     Tables: {
+      custom_links: {
+        Row: {
+          created_at: string
+          id: string
+          is_active: boolean
+          position: number
+          title: string
+          updated_at: string
+          url: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          position?: number
+          title: string
+          updated_at?: string
+          url: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          position?: number
+          title?: string
+          updated_at?: string
+          url?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       nfc_cards: {
         Row: {
           card_id: string
@@ -55,11 +88,13 @@ export type Database = {
           display_name: string | null
           id: string
           instagram_link: string | null
+          is_banned: boolean
           phone_number: string | null
           tiktok_link: string | null
           updated_at: string
           user_id: string
           username: string
+          views: number
           whatsapp_link: string | null
         }
         Insert: {
@@ -69,11 +104,13 @@ export type Database = {
           display_name?: string | null
           id?: string
           instagram_link?: string | null
+          is_banned?: boolean
           phone_number?: string | null
           tiktok_link?: string | null
           updated_at?: string
           user_id: string
           username: string
+          views?: number
           whatsapp_link?: string | null
         }
         Update: {
@@ -83,12 +120,35 @@ export type Database = {
           display_name?: string | null
           id?: string
           instagram_link?: string | null
+          is_banned?: boolean
           phone_number?: string | null
           tiktok_link?: string | null
           updated_at?: string
           user_id?: string
           username?: string
+          views?: number
           whatsapp_link?: string | null
+        }
+        Relationships: []
+      }
+      user_roles: {
+        Row: {
+          created_at: string
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
         }
         Relationships: []
       }
@@ -97,10 +157,20 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
+      increment_profile_views: {
+        Args: { profile_username: string }
+        Returns: undefined
+      }
     }
     Enums: {
-      [_ in never]: never
+      app_role: "admin" | "moderator" | "user"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -227,6 +297,8 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      app_role: ["admin", "moderator", "user"],
+    },
   },
 } as const

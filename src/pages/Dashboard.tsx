@@ -1,11 +1,13 @@
 import { useState, useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
+import { useAdminCheck } from "@/hooks/useAdminCheck";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
+import CustomLinksManager from "@/components/CustomLinksManager";
 import { 
   User, 
   LogOut, 
@@ -17,7 +19,8 @@ import {
   Loader2,
   Copy,
   Check,
-  CreditCard
+  CreditCard,
+  Eye
 } from "lucide-react";
 
 interface Profile {
@@ -30,6 +33,7 @@ interface Profile {
   whatsapp_link: string | null;
   instagram_link: string | null;
   tiktok_link: string | null;
+  views: number;
 }
 
 interface NfcCard {
@@ -40,6 +44,7 @@ interface NfcCard {
 
 const Dashboard = () => {
   const { user, loading: authLoading, signOut } = useAuth();
+  const { isAdmin } = useAdminCheck();
   const navigate = useNavigate();
   const { toast } = useToast();
   const [profile, setProfile] = useState<Profile | null>(null);
@@ -58,17 +63,22 @@ const Dashboard = () => {
   const [tiktokLink, setTiktokLink] = useState("");
 
   useEffect(() => {
-    if (!authLoading && !user) {
-      navigate("/auth");
+    if (!authLoading) {
+      if (!user) {
+        navigate("/auth");
+      } else if (isAdmin) {
+        // Admin users should be redirected to admin panel
+        navigate("/admin");
+      }
     }
-  }, [user, authLoading, navigate]);
+  }, [user, authLoading, isAdmin, navigate]);
 
   useEffect(() => {
-    if (user) {
+    if (user && !isAdmin) {
       fetchProfile();
       fetchLinkedCard();
     }
-  }, [user]);
+  }, [user, isAdmin]);
 
   const fetchLinkedCard = async () => {
     if (!user) return;
@@ -210,7 +220,7 @@ const Dashboard = () => {
             <h1 className="text-3xl font-display font-bold text-foreground mb-2">
               Edit Your Profile
             </h1>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
               <p className="text-muted-foreground">
                 Your public link:{" "}
                 <Link 
@@ -225,6 +235,25 @@ const Dashboard = () => {
               </Button>
             </div>
           </div>
+
+          {/* Profile Views */}
+          {profile && (
+            <div className="glass-card rounded-2xl p-4 mb-6">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-primary/20 flex items-center justify-center">
+                    <Eye className="w-5 h-5 text-primary" />
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">Profile Views</p>
+                    <p className="text-2xl font-display font-bold text-foreground">
+                      {profile.views.toLocaleString()}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Linked NFC Card */}
           {linkedCard && (
@@ -370,6 +399,13 @@ const Dashboard = () => {
                 </div>
               </div>
             </div>
+
+            {/* Custom Links Section */}
+            {user && (
+              <div className="border-t border-border pt-6">
+                <CustomLinksManager userId={user.id} />
+              </div>
+            )}
 
             {/* Save Button */}
             <div className="flex items-center justify-between pt-4">
