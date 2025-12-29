@@ -342,6 +342,7 @@ const InventoryTab = () => {
                 <TableHead>Card ID</TableHead>
                 <TableHead>PIN</TableHead>
                 <TableHead>Claim URL</TableHead>
+                <TableHead className="w-12">Copy</TableHead>
                 <TableHead>QR</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Created</TableHead>
@@ -358,12 +359,63 @@ const InventoryTab = () => {
                     {baseUrl}/c/{card.card_id}
                   </TableCell>
                   <TableCell>
-                    <div className="bg-white p-1 rounded inline-block">
-                      <QRCodeSVG
-                        value={`${baseUrl}/c/${card.card_id}`}
-                        size={32}
-                        level="M"
-                      />
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => {
+                        navigator.clipboard.writeText(`${baseUrl}/c/${card.card_id}`);
+                        setCopiedId(card.card_id);
+                        setTimeout(() => setCopiedId(null), 2000);
+                        toast({
+                          title: "Copied!",
+                          description: "Claim URL copied to clipboard.",
+                        });
+                      }}
+                      className="h-8 w-8"
+                    >
+                      {copiedId === card.card_id ? (
+                        <Check className="w-4 h-4 text-green-400" />
+                      ) : (
+                        <Copy className="w-4 h-4" />
+                      )}
+                    </Button>
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex items-center gap-2">
+                      <div className="bg-white p-1 rounded inline-block">
+                        <QRCodeSVG
+                          id={`qr-all-${card.card_id}`}
+                          value={`${baseUrl}/c/${card.card_id}`}
+                          size={32}
+                          level="M"
+                        />
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => {
+                          const svg = document.getElementById(`qr-all-${card.card_id}`);
+                          if (!svg) return;
+                          const svgData = new XMLSerializer().serializeToString(svg);
+                          const canvas = document.createElement("canvas");
+                          const ctx = canvas.getContext("2d");
+                          const img = new Image();
+                          img.onload = () => {
+                            canvas.width = img.width;
+                            canvas.height = img.height;
+                            ctx?.drawImage(img, 0, 0);
+                            const pngFile = canvas.toDataURL("image/png");
+                            const downloadLink = document.createElement("a");
+                            downloadLink.download = `qr-${card.card_id}.png`;
+                            downloadLink.href = pngFile;
+                            downloadLink.click();
+                          };
+                          img.src = "data:image/svg+xml;base64," + btoa(svgData);
+                        }}
+                        className="h-8 w-8"
+                      >
+                        <Download className="w-4 h-4" />
+                      </Button>
                     </div>
                   </TableCell>
                   <TableCell>

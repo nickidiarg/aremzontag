@@ -39,6 +39,29 @@ interface PublicProfileProps {
   username?: string;
 }
 
+// Demo profile data - hardcoded for /profile/demo
+const DEMO_PROFILE: Profile = {
+  id: "demo-id",
+  user_id: "demo-user-id",
+  username: "demo",
+  display_name: "Alex Johnson",
+  bio: "Digital creator & entrepreneur. Building amazing things one link at a time. 🚀",
+  avatar_url: "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&h=150&fit=crop&crop=face",
+  phone_number: "+1 (555) 123-4567",
+  whatsapp_link: "https://wa.me/15551234567",
+  instagram_link: "https://instagram.com/alexjohnson",
+  tiktok_link: "https://tiktok.com/@alexjohnson",
+  views: 12847,
+};
+
+const DEMO_LINKS: CustomLink[] = [
+  { id: "1", title: "My Portfolio", url: "https://alexjohnson.design", position: 0, is_active: true },
+  { id: "2", title: "Book a Consultation", url: "https://calendly.com/alexjohnson", position: 1, is_active: true },
+  { id: "3", title: "My Online Store", url: "https://shop.alexjohnson.com", position: 2, is_active: true },
+  { id: "4", title: "YouTube Channel", url: "https://youtube.com/@alexjohnson", position: 3, is_active: true },
+  { id: "5", title: "Latest Blog Post", url: "https://blog.alexjohnson.com", position: 4, is_active: true },
+];
+
 const PublicProfile = ({ username: propUsername }: PublicProfileProps) => {
   const { username: paramUsername } = useParams<{ username: string }>();
   const username = propUsername || paramUsername;
@@ -46,6 +69,14 @@ const PublicProfile = ({ username: propUsername }: PublicProfileProps) => {
   const [customLinks, setCustomLinks] = useState<CustomLink[]>([]);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
+  const [currentUser, setCurrentUser] = useState<string | null>(null);
+
+  useEffect(() => {
+    // Check if there's a logged in user
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setCurrentUser(session?.user?.id || null);
+    });
+  }, []);
 
   useEffect(() => {
     fetchProfile();
@@ -53,6 +84,14 @@ const PublicProfile = ({ username: propUsername }: PublicProfileProps) => {
 
   const fetchProfile = async () => {
     if (!username) return;
+
+    // Handle demo profile - no DB query
+    if (username.toLowerCase() === "demo") {
+      setProfile(DEMO_PROFILE);
+      setCustomLinks(DEMO_LINKS);
+      setLoading(false);
+      return;
+    }
 
     try {
       const { data, error } = await supabase
@@ -90,6 +129,9 @@ const PublicProfile = ({ username: propUsername }: PublicProfileProps) => {
       setLoading(false);
     }
   };
+
+  // Check if current user is the profile owner
+  const isOwner = currentUser && profile && currentUser === profile.user_id;
 
   if (loading) {
     return (
@@ -201,11 +243,13 @@ const PublicProfile = ({ username: propUsername }: PublicProfileProps) => {
             @{profile?.username}
           </p>
 
-          {/* Views Badge */}
-          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-primary/10 text-primary text-xs font-medium mb-4">
-            <Eye className="w-3.5 h-3.5" />
-            {(profile?.views || 0).toLocaleString()} views
-          </div>
+          {/* Views Badge - Only show to profile owner */}
+          {isOwner && (
+            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-primary/10 text-primary text-xs font-medium mb-4">
+              <Eye className="w-3.5 h-3.5" />
+              {(profile?.views || 0).toLocaleString()} views
+            </div>
+          )}
 
           {/* Bio */}
           {profile?.bio && (

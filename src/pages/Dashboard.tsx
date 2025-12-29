@@ -20,7 +20,8 @@ import {
   Copy,
   Check,
   CreditCard,
-  Eye
+  Eye,
+  Shield
 } from "lucide-react";
 
 interface Profile {
@@ -66,19 +67,17 @@ const Dashboard = () => {
     if (!authLoading) {
       if (!user) {
         navigate("/auth");
-      } else if (isAdmin) {
-        // Admin users should be redirected to admin panel
-        navigate("/admin");
       }
+      // Removed forced redirect - admins can access their dashboard
     }
-  }, [user, authLoading, isAdmin, navigate]);
+  }, [user, authLoading, navigate]);
 
   useEffect(() => {
-    if (user && !isAdmin) {
+    if (user) {
       fetchProfile();
       fetchLinkedCard();
     }
-  }, [user, isAdmin]);
+  }, [user]);
 
   const fetchLinkedCard = async () => {
     if (!user) return;
@@ -205,10 +204,20 @@ const Dashboard = () => {
             <span className="text-xl font-display font-bold text-foreground">LinkBio</span>
           </Link>
           
-          <Button variant="ghost" size="sm" onClick={handleSignOut}>
-            <LogOut className="w-4 h-4 mr-2" />
-            Sign Out
-          </Button>
+          <div className="flex items-center gap-2">
+            {isAdmin && (
+              <Link to="/admin">
+                <Button variant="glass" size="sm">
+                  <Shield className="w-4 h-4 mr-2" />
+                  Admin Panel
+                </Button>
+              </Link>
+            )}
+            <Button variant="ghost" size="sm" onClick={handleSignOut}>
+              <LogOut className="w-4 h-4 mr-2" />
+              Sign Out
+            </Button>
+          </div>
         </nav>
       </header>
 
