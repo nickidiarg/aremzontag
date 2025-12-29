@@ -172,9 +172,39 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      nfc_cards_safe: {
+        Row: {
+          card_id: string | null
+          claimed_at: string | null
+          created_at: string | null
+          id: string | null
+          is_active: boolean | null
+          linked_user_id: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          card_id?: string | null
+          claimed_at?: string | null
+          created_at?: string | null
+          id?: string | null
+          is_active?: boolean | null
+          linked_user_id?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          card_id?: string | null
+          claimed_at?: string | null
+          created_at?: string | null
+          id?: string | null
+          is_active?: boolean | null
+          linked_user_id?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
+      admin_unclaim_card: { Args: { target_card_id: string }; Returns: boolean }
       check_card_status: {
         Args: { input_card_id: string }
         Returns: {
