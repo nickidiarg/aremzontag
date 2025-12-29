@@ -1,11 +1,11 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { CreditCard, Lock, CheckCircle, Loader2 } from "lucide-react";
+import { CreditCard, Lock, CheckCircle, Loader2, AlertCircle } from "lucide-react";
 import { toast } from "sonner";
 
 interface ClaimCardProps {
@@ -16,51 +16,53 @@ const ClaimCard = ({ cardId }: ClaimCardProps) => {
   const navigate = useNavigate();
   const { user, loading: authLoading, signIn, signUp } = useAuth();
   
-  const [step, setStep] = useState<"verify" | "auth" | "claiming">("verify");
+  const [step, setStep] = useState<"checking" | "verify" | "auth" | "claiming">("checking");
   const [pin, setPin] = useState("");
-  const [pinVerified, setPinVerified] = useState(false);
   const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [username, setUsername] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [cardStatus, setCardStatus] = useState<{ exists: boolean; claimed: boolean } | null>(null);
 
-  const handleVerifyPin = async (e: React.FormEvent) => {
+  // Check card status on mount using secure RPC
+  useEffect(() => {
+    const checkCardStatus = async () => {
+      const { data, error } = await supabase.rpc('check_card_status', {
+        input_card_id: cardId
+      });
+
+      if (error) {
+        toast.error("Failed to check card status");
+        setCardStatus({ exists: false, claimed: false });
+        setStep("verify");
+        return;
+      }
+
+      const status = data?.[0];
+      if (!status?.card_exists) {
+        setCardStatus({ exists: false, claimed: false });
+      } else if (status.is_claimed) {
+        setCardStatus({ exists: true, claimed: true });
+      } else {
+        setCardStatus({ exists: true, claimed: false });
+      }
+      setStep("verify");
+    };
+
+    checkCardStatus();
+  }, [cardId]);
+
+  const handleVerifyAndClaim = async (e: React.FormEvent) => {
     e.preventDefault();
-    setIsSubmitting(true);
-
-    // Fetch the card to verify PIN
-    const { data: card, error } = await supabase
-      .from("nfc_cards")
-      .select("secret_pin, linked_user_id")
-      .eq("card_id", cardId)
-      .maybeSingle();
-
-    if (error || !card) {
-      toast.error("Card not found");
-      setIsSubmitting(false);
+    
+    if (!user) {
+      // User needs to authenticate first, then we'll claim
+      setStep("auth");
       return;
     }
 
-    if (card.linked_user_id) {
-      toast.error("This card has already been claimed");
-      setIsSubmitting(false);
-      return;
-    }
-
-    if (card.secret_pin !== pin) {
-      toast.error("Incorrect PIN");
-      setIsSubmitting(false);
-      return;
-    }
-
-    setPinVerified(true);
-    setStep(user ? "claiming" : "auth");
-    setIsSubmitting(false);
-
-    if (user) {
-      await claimCard();
-    }
+    await claimCardWithPin();
   };
 
   const handleAuth = async (e: React.FormEvent) => {
@@ -91,46 +93,41 @@ const ClaimCard = ({ cardId }: ClaimCardProps) => {
     setStep("claiming");
     // Wait a moment for auth state to update
     setTimeout(() => {
-      claimCard();
+      claimCardWithPin();
     }, 1000);
   };
 
-  const claimCard = async () => {
+  const claimCardWithPin = async () => {
     setIsSubmitting(true);
+    setStep("claiming");
 
-    const { data: { user: currentUser } } = await supabase.auth.getUser();
-    
-    if (!currentUser) {
-      toast.error("Please sign in first");
-      setStep("auth");
+    // Use secure RPC - PIN is verified server-side, never exposed to frontend
+    const { data: success, error } = await supabase.rpc('verify_and_claim_card', {
+      input_card_id: cardId,
+      input_pin: pin
+    });
+
+    if (error) {
+      if (error.message.includes('already has a linked card')) {
+        toast.error("You already have a card linked to your account");
+        navigate("/dashboard");
+        return;
+      }
+      if (error.message.includes('already claimed')) {
+        toast.error("This card has already been claimed");
+        setStep("verify");
+        setIsSubmitting(false);
+        return;
+      }
+      toast.error("Failed to claim card. Please try again.");
+      setStep("verify");
       setIsSubmitting(false);
       return;
     }
 
-    // Check if user already has a card
-    const { data: existingCard } = await supabase
-      .from("nfc_cards")
-      .select("card_id")
-      .eq("linked_user_id", currentUser.id)
-      .maybeSingle();
-
-    if (existingCard) {
-      toast.error(`You already have a card linked (${existingCard.card_id})`);
-      navigate("/dashboard");
-      return;
-    }
-
-    const { error } = await supabase
-      .from("nfc_cards")
-      .update({
-        linked_user_id: currentUser.id,
-        claimed_at: new Date().toISOString(),
-      })
-      .eq("card_id", cardId)
-      .is("linked_user_id", null);
-
-    if (error) {
-      toast.error("Failed to claim card. It may have been claimed by someone else.");
+    if (!success) {
+      toast.error("Incorrect PIN or card not found");
+      setStep("verify");
       setIsSubmitting(false);
       return;
     }
@@ -139,10 +136,50 @@ const ClaimCard = ({ cardId }: ClaimCardProps) => {
     navigate("/dashboard");
   };
 
-  if (authLoading) {
+  if (authLoading || step === "checking") {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  // Card doesn't exist
+  if (cardStatus && !cardStatus.exists) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center p-4">
+        <div className="w-full max-w-md">
+          <div className="glass-card p-8 space-y-6 text-center">
+            <div className="w-16 h-16 mx-auto bg-destructive/20 rounded-2xl flex items-center justify-center mb-4">
+              <AlertCircle className="h-8 w-8 text-destructive" />
+            </div>
+            <h1 className="text-2xl font-bold text-foreground">Card Not Found</h1>
+            <p className="text-muted-foreground">This card ID does not exist in our system.</p>
+            <Button onClick={() => navigate("/")} className="w-full">
+              Go Home
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Card already claimed
+  if (cardStatus && cardStatus.claimed) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center p-4">
+        <div className="w-full max-w-md">
+          <div className="glass-card p-8 space-y-6 text-center">
+            <div className="w-16 h-16 mx-auto bg-amber-500/20 rounded-2xl flex items-center justify-center mb-4">
+              <CreditCard className="h-8 w-8 text-amber-500" />
+            </div>
+            <h1 className="text-2xl font-bold text-foreground">Card Already Claimed</h1>
+            <p className="text-muted-foreground">This card has already been linked to an account.</p>
+            <Button onClick={() => navigate("/")} className="w-full">
+              Go Home
+            </Button>
+          </div>
+        </div>
       </div>
     );
   }
@@ -160,7 +197,7 @@ const ClaimCard = ({ cardId }: ClaimCardProps) => {
           </div>
 
           {step === "verify" && (
-            <form onSubmit={handleVerifyPin} className="space-y-4">
+            <form onSubmit={handleVerifyAndClaim} className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="pin" className="text-foreground">Enter Secret PIN</Label>
                 <div className="relative">
@@ -176,14 +213,17 @@ const ClaimCard = ({ cardId }: ClaimCardProps) => {
                     required
                   />
                 </div>
+                <p className="text-xs text-muted-foreground">
+                  Your PIN is verified securely on our servers
+                </p>
               </div>
-              <Button type="submit" className="w-full" disabled={isSubmitting}>
+              <Button type="submit" className="w-full" disabled={isSubmitting || !pin}>
                 {isSubmitting ? (
                   <Loader2 className="h-4 w-4 animate-spin mr-2" />
                 ) : (
                   <CheckCircle className="h-4 w-4 mr-2" />
                 )}
-                Verify PIN
+                {user ? "Verify & Claim Card" : "Continue"}
               </Button>
             </form>
           )}

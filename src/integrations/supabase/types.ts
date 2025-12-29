@@ -157,6 +157,14 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      check_card_status: {
+        Args: { input_card_id: string }
+        Returns: {
+          card_exists: boolean
+          is_active: boolean
+          is_claimed: boolean
+        }[]
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
@@ -167,6 +175,10 @@ export type Database = {
       increment_profile_views: {
         Args: { profile_username: string }
         Returns: undefined
+      }
+      verify_and_claim_card: {
+        Args: { input_card_id: string; input_pin: string }
+        Returns: boolean
       }
     }
     Enums: {
