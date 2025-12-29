@@ -176,16 +176,9 @@ export type Database = {
     }
     Functions: {
       admin_unclaim_card: { Args: { target_card_id: string }; Returns: boolean }
+      check_card_availability: { Args: { slug_input: string }; Returns: Json }
       check_card_status: {
         Args: { input_card_id: string }
-        Returns: {
-          card_exists: boolean
-          is_active: boolean
-          is_claimed: boolean
-        }[]
-      }
-      get_card_status_public: {
-        Args: { lookup_id: string }
         Returns: {
           card_exists: boolean
           is_active: boolean
