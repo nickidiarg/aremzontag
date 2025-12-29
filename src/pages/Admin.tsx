@@ -12,6 +12,7 @@ import {
   Shield,
   Package,
   Users,
+  User,
 } from "lucide-react";
 import InventoryTab from "@/components/admin/InventoryTab";
 import ManageUsersTab from "@/components/admin/ManageUsersTab";
@@ -87,6 +88,12 @@ const Admin = () => {
               <Shield className="w-4 h-4" />
               Admin
             </div>
+            <Link to="/dashboard">
+              <Button variant="glass" size="sm">
+                <User className="w-4 h-4 mr-2" />
+                My Profile
+              </Button>
+            </Link>
             <Button variant="ghost" size="sm" onClick={handleSignOut}>
               <LogOut className="w-4 h-4 mr-2" />
               Sign Out
