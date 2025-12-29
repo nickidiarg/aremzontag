@@ -21,7 +21,8 @@ import {
   Check,
   CreditCard,
   Eye,
-  Shield
+  Shield,
+  Upload
 } from "lucide-react";
 
 interface Profile {
@@ -53,6 +54,7 @@ const Dashboard = () => {
   const [saving, setSaving] = useState(false);
   const [copied, setCopied] = useState(false);
   const [viewCount, setViewCount] = useState<number>(0);
+  const [uploading, setUploading] = useState(false);
 
   // Form state
   const [displayName, setDisplayName] = useState("");
@@ -165,7 +167,73 @@ const Dashboard = () => {
         variant: "destructive",
       });
     } finally {
-      setSaving(false);
+    setSaving(false);
+    }
+  };
+
+  const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !user) return;
+
+    // Validate file type
+    const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+    if (!allowedTypes.includes(file.type)) {
+      toast({
+        title: "Invalid file type",
+        description: "Please upload a JPEG, PNG, GIF, or WebP image.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Validate file size (max 2MB)
+    if (file.size > 2 * 1024 * 1024) {
+      toast({
+        title: "File too large",
+        description: "Please upload an image smaller than 2MB.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setUploading(true);
+    try {
+      const fileExt = file.name.split('.').pop();
+      const filePath = `${user.id}/avatar.${fileExt}`;
+
+      // Delete old avatar if exists
+      await supabase.storage
+        .from('avatars')
+        .remove([filePath]);
+
+      // Upload new avatar
+      const { error: uploadError } = await supabase.storage
+        .from('avatars')
+        .upload(filePath, file, { upsert: true });
+
+      if (uploadError) throw uploadError;
+
+      // Get public URL
+      const { data: urlData } = supabase.storage
+        .from('avatars')
+        .getPublicUrl(filePath);
+
+      const newAvatarUrl = urlData.publicUrl + '?t=' + Date.now();
+      setAvatarUrl(newAvatarUrl);
+
+      toast({
+        title: "Avatar uploaded!",
+        description: "Your profile picture has been updated.",
+      });
+    } catch (error) {
+      console.error("Error uploading avatar:", error);
+      toast({
+        title: "Upload failed",
+        description: "Failed to upload avatar. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setUploading(false);
     }
   };
 
@@ -298,29 +366,52 @@ const Dashboard = () => {
           <div className="glass-card rounded-2xl p-6 md:p-8 space-y-6">
             {/* Avatar Preview */}
             <div className="flex items-center gap-4">
-              <div className="w-20 h-20 rounded-full bg-secondary flex items-center justify-center overflow-hidden border-2 border-border">
-                {avatarUrl ? (
-                  <img 
-                    src={avatarUrl} 
-                    alt="Avatar" 
-                    className="w-full h-full object-cover"
-                    onError={(e) => {
-                      (e.target as HTMLImageElement).style.display = 'none';
-                    }}
-                  />
-                ) : (
-                  <User className="w-8 h-8 text-muted-foreground" />
-                )}
+              <div className="relative">
+                <div className="w-20 h-20 rounded-full bg-secondary flex items-center justify-center overflow-hidden border-2 border-border">
+                  {avatarUrl ? (
+                    <img 
+                      src={avatarUrl} 
+                      alt="Avatar" 
+                      className="w-full h-full object-cover"
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).style.display = 'none';
+                      }}
+                    />
+                  ) : (
+                    <User className="w-8 h-8 text-muted-foreground" />
+                  )}
+                </div>
+                <label 
+                  htmlFor="avatar-upload"
+                  className="absolute bottom-0 right-0 w-7 h-7 bg-primary rounded-full flex items-center justify-center cursor-pointer hover:bg-primary/90 transition-colors"
+                >
+                  {uploading ? (
+                    <Loader2 className="w-4 h-4 text-primary-foreground animate-spin" />
+                  ) : (
+                    <Upload className="w-4 h-4 text-primary-foreground" />
+                  )}
+                </label>
+                <input
+                  id="avatar-upload"
+                  type="file"
+                  accept="image/jpeg,image/png,image/gif,image/webp"
+                  className="hidden"
+                  onChange={handleAvatarUpload}
+                  disabled={uploading}
+                />
               </div>
               <div className="flex-1">
                 <label className="text-sm font-medium text-foreground">Avatar URL</label>
                 <Input
                   type="url"
-                  placeholder="https://example.com/avatar.jpg"
+                  placeholder="Or paste an image URL..."
                   value={avatarUrl}
                   onChange={(e) => setAvatarUrl(e.target.value)}
                   className="mt-1"
                 />
+                <p className="text-xs text-muted-foreground mt-1">
+                  Click the upload icon or paste a URL
+                </p>
               </div>
             </div>
 
