@@ -80,6 +80,24 @@ export type Database = {
         }
         Relationships: []
       }
+      profile_views: {
+        Row: {
+          id: string
+          profile_id: string
+          viewed_at: string
+        }
+        Insert: {
+          id?: string
+          profile_id: string
+          viewed_at?: string
+        }
+        Update: {
+          id?: string
+          profile_id?: string
+          viewed_at?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           avatar_url: string | null
@@ -165,6 +183,7 @@ export type Database = {
           is_claimed: boolean
         }[]
       }
+      get_my_profile_views: { Args: never; Returns: number }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]

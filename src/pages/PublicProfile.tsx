@@ -9,8 +9,7 @@ import {
   ArrowLeft,
   Loader2,
   Link2,
-  ExternalLink,
-  Eye
+  ExternalLink
 } from "lucide-react";
 
 interface Profile {
@@ -24,7 +23,6 @@ interface Profile {
   whatsapp_link: string | null;
   instagram_link: string | null;
   tiktok_link: string | null;
-  views: number;
 }
 
 interface CustomLink {
@@ -51,7 +49,6 @@ const DEMO_PROFILE: Profile = {
   whatsapp_link: "https://wa.me/15551234567",
   instagram_link: "https://instagram.com/alexjohnson",
   tiktok_link: "https://tiktok.com/@alexjohnson",
-  views: 12847,
 };
 
 const DEMO_LINKS: CustomLink[] = [
@@ -242,14 +239,6 @@ const PublicProfile = ({ username: propUsername }: PublicProfileProps) => {
           <p className="text-muted-foreground text-sm mb-2">
             @{profile?.username}
           </p>
-
-          {/* Views Badge - Only show to profile owner */}
-          {isOwner && (
-            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-primary/10 text-primary text-xs font-medium mb-4">
-              <Eye className="w-3.5 h-3.5" />
-              {(profile?.views || 0).toLocaleString()} views
-            </div>
-          )}
 
           {/* Bio */}
           {profile?.bio && (
