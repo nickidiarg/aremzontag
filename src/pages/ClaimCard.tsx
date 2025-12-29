@@ -24,31 +24,58 @@ const ClaimCard = ({ cardId }: ClaimCardProps) => {
   const [username, setUsername] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [cardStatus, setCardStatus] = useState<{ exists: boolean; claimed: boolean } | null>(null);
+  const [debugError, setDebugError] = useState<string | null>(null);
 
-  // Check card status on mount using public RPC (works for anonymous users)
+  // Check card status on mount using NEW public RPC check_card_availability
   useEffect(() => {
     const checkCardStatus = async () => {
-      const { data, error } = await supabase.rpc('get_card_status_public', {
-        lookup_id: cardId
-      });
+      setDebugError(null);
+      
+      try {
+        const { data, error } = await supabase.rpc('check_card_availability', {
+          slug_input: cardId
+        });
 
-      if (error) {
-        console.error("Card status check error:", error);
-        toast.error("Failed to check card status");
+        console.log("RPC Response - data:", data, "error:", error);
+
+        if (error) {
+          console.error("RPC Error:", error);
+          setDebugError(`RPC Error: ${error.message} (Code: ${error.code})`);
+          setCardStatus({ exists: false, claimed: false });
+          setStep("verify");
+          return;
+        }
+
+        if (!data) {
+          setDebugError("RPC returned null data");
+          setCardStatus({ exists: false, claimed: false });
+          setStep("verify");
+          return;
+        }
+
+        // data is a JSON object: { exists: boolean, status: string }
+        const result = data as { exists: boolean; status: string };
+        console.log("Parsed result:", result);
+
+        if (!result.exists) {
+          setDebugError(`Status: Card not found (status: ${result.status})`);
+          setCardStatus({ exists: false, claimed: false });
+        } else if (result.status === 'claimed') {
+          setCardStatus({ exists: true, claimed: true });
+        } else if (result.status === 'inactive') {
+          setDebugError(`Status: Card is inactive`);
+          setCardStatus({ exists: false, claimed: false });
+        } else {
+          // status === 'available'
+          setCardStatus({ exists: true, claimed: false });
+        }
+        setStep("verify");
+      } catch (err) {
+        console.error("Unexpected error:", err);
+        setDebugError(`Unexpected error: ${err instanceof Error ? err.message : String(err)}`);
         setCardStatus({ exists: false, claimed: false });
         setStep("verify");
-        return;
       }
-
-      const status = data?.[0];
-      if (!status?.card_exists) {
-        setCardStatus({ exists: false, claimed: false });
-      } else if (status.is_claimed) {
-        setCardStatus({ exists: true, claimed: true });
-      } else {
-        setCardStatus({ exists: true, claimed: false });
-      }
-      setStep("verify");
     };
 
     checkCardStatus();
@@ -145,7 +172,7 @@ const ClaimCard = ({ cardId }: ClaimCardProps) => {
     );
   }
 
-  // Card doesn't exist
+  // Card doesn't exist - show debug info
   if (cardStatus && !cardStatus.exists) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center p-4">
@@ -156,6 +183,15 @@ const ClaimCard = ({ cardId }: ClaimCardProps) => {
             </div>
             <h1 className="text-2xl font-bold text-foreground">Card Not Found</h1>
             <p className="text-muted-foreground">This card ID does not exist in our system.</p>
+            
+            {/* Debug info */}
+            {debugError && (
+              <div className="bg-destructive/10 border border-destructive/30 rounded-lg p-4 text-left">
+                <p className="text-sm font-mono text-destructive break-all">{debugError}</p>
+                <p className="text-xs text-muted-foreground mt-2">Card ID: {cardId}</p>
+              </div>
+            )}
+            
             <Button onClick={() => navigate("/")} className="w-full">
               Go Home
             </Button>
