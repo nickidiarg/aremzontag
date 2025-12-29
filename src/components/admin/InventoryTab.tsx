@@ -18,6 +18,7 @@ import {
   Check,
   CreditCard,
   Download,
+  RotateCcw,
 } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 
@@ -58,6 +59,7 @@ const InventoryTab = () => {
   const [generatedCards, setGeneratedCards] = useState<GeneratedCard[]>([]);
   const [allCards, setAllCards] = useState<NfcCard[]>([]);
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [unclaimingId, setUnclaimingId] = useState<string | null>(null);
 
   const baseUrl = window.location.origin;
 
@@ -124,6 +126,36 @@ const InventoryTab = () => {
     setGenerating(false);
     setCardCount("");
     setShowGenerator(false);
+  };
+
+  const handleUnclaimCard = async (cardId: string) => {
+    setUnclaimingId(cardId);
+    
+    const { data: success, error } = await supabase.rpc('admin_unclaim_card', {
+      target_card_id: cardId
+    });
+
+    if (error) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to unclaim card.",
+        variant: "destructive",
+      });
+    } else if (success) {
+      toast({
+        title: "Success!",
+        description: "Card has been unclaimed and is now available.",
+      });
+      fetchAllCards();
+    } else {
+      toast({
+        title: "Error",
+        description: "Card not found.",
+        variant: "destructive",
+      });
+    }
+
+    setUnclaimingId(null);
   };
 
   const copyToClipboard = (text: string, id: string) => {
@@ -346,6 +378,7 @@ const InventoryTab = () => {
                 <TableHead>QR</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Created</TableHead>
+                <TableHead>Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -431,6 +464,24 @@ const InventoryTab = () => {
                   </TableCell>
                   <TableCell className="text-muted-foreground text-sm">
                     {new Date(card.created_at).toLocaleDateString()}
+                  </TableCell>
+                  <TableCell>
+                    {card.linked_user_id && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleUnclaimCard(card.card_id)}
+                        disabled={unclaimingId === card.card_id}
+                        className="text-amber-500 hover:text-amber-400 hover:bg-amber-500/10"
+                      >
+                        {unclaimingId === card.card_id ? (
+                          <Loader2 className="w-4 h-4 animate-spin mr-1" />
+                        ) : (
+                          <RotateCcw className="w-4 h-4 mr-1" />
+                        )}
+                        Unclaim
+                      </Button>
+                    )}
                   </TableCell>
                 </TableRow>
               ))}
