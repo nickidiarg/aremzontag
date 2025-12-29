@@ -25,14 +25,15 @@ const ClaimCard = ({ cardId }: ClaimCardProps) => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [cardStatus, setCardStatus] = useState<{ exists: boolean; claimed: boolean } | null>(null);
 
-  // Check card status on mount using secure RPC
+  // Check card status on mount using public RPC (works for anonymous users)
   useEffect(() => {
     const checkCardStatus = async () => {
-      const { data, error } = await supabase.rpc('check_card_status', {
-        input_card_id: cardId
+      const { data, error } = await supabase.rpc('get_card_status_public', {
+        lookup_id: cardId
       });
 
       if (error) {
+        console.error("Card status check error:", error);
         toast.error("Failed to check card status");
         setCardStatus({ exists: false, claimed: false });
         setStep("verify");

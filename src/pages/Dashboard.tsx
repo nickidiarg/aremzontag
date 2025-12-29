@@ -221,10 +221,25 @@ const Dashboard = () => {
       const newAvatarUrl = urlData.publicUrl + '?t=' + Date.now();
       setAvatarUrl(newAvatarUrl);
 
-      toast({
-        title: "Avatar uploaded!",
-        description: "Your profile picture has been updated.",
-      });
+      // Auto-save the avatar URL to profile
+      const { error: updateError } = await supabase
+        .from("profiles")
+        .update({ avatar_url: newAvatarUrl })
+        .eq("user_id", user.id);
+
+      if (updateError) {
+        console.error("Error saving avatar URL:", updateError);
+        toast({
+          title: "Avatar uploaded, but save failed",
+          description: "Please click Save to update your profile.",
+          variant: "destructive",
+        });
+      } else {
+        toast({
+          title: "Avatar uploaded!",
+          description: "Your profile picture has been updated and saved.",
+        });
+      }
     } catch (error) {
       console.error("Error uploading avatar:", error);
       toast({

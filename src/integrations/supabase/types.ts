@@ -184,6 +184,14 @@ export type Database = {
           is_claimed: boolean
         }[]
       }
+      get_card_status_public: {
+        Args: { lookup_id: string }
+        Returns: {
+          card_exists: boolean
+          is_active: boolean
+          is_claimed: boolean
+        }[]
+      }
       get_my_profile_views: { Args: never; Returns: number }
       has_role: {
         Args: {
