@@ -10,7 +10,7 @@ const CardRoute = () => {
   const { cardId } = useParams<{ cardId: string }>();
   const navigate = useNavigate();
   const { user, loading: authLoading } = useAuth();
-  
+
   const [card, setCard] = useState<any>(null);
   const [linkedProfile, setLinkedProfile] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -24,6 +24,7 @@ const CardRoute = () => {
         return;
       }
 
+      // 1. Get the Card Data
       const { data: cardData, error: cardError } = await supabase
         .from("nfc_cards")
         .select("*")
@@ -31,6 +32,7 @@ const CardRoute = () => {
         .maybeSingle();
 
       if (cardError) {
+        console.error("Error fetching card:", cardError);
         setError("Error fetching card");
         setLoading(false);
         return;
@@ -50,15 +52,20 @@ const CardRoute = () => {
 
       setCard(cardData);
 
-      // If card is claimed, fetch the linked profile
+      // 2. If card is claimed, fetch the linked profile
       if (cardData.linked_user_id) {
         const { data: profileData, error: profileError } = await supabase
           .from("profiles")
           .select("*")
-          .eq("user_id", cardData.linked_user_id)
+          // FIX: Changed 'user_id' to 'id' to match your database
+          .eq("id", cardData.linked_user_id)
           .maybeSingle();
 
-        if (!profileError && profileData) {
+        if (profileError) {
+          console.error("Error fetching profile:", profileError);
+        }
+
+        if (profileData) {
           setLinkedProfile(profileData);
         }
       }
@@ -88,12 +95,25 @@ const CardRoute = () => {
     );
   }
 
-  // Card is claimed - show the profile
+  // 3. REDIRECT LOGIC
+  // If we found the profile, Show it!
   if (card?.linked_user_id && linkedProfile) {
     return <PublicProfile username={linkedProfile.username} />;
   }
 
-  // Card is unclaimed - show claim page
+  // If card is claimed but profile is missing (rare bug), show error
+  if (card?.linked_user_id && !linkedProfile) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center p-4">
+        <div className="glass-card p-8 text-center max-w-md">
+          <h1 className="text-2xl font-bold text-foreground mb-4">Profile Not Found</h1>
+          <p className="text-muted-foreground">This card is claimed, but the user profile is missing.</p>
+        </div>
+      </div>
+    );
+  }
+
+  // 4. If unclaimed, show Claim Page
   return <ClaimCard cardId={cardId!} />;
 };
 

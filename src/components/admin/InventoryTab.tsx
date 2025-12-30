@@ -30,7 +30,8 @@ interface GeneratedCard {
 interface NfcCard {
   id: string;
   card_id: string;
-  secret_pin: string;
+  secret_pin?: string; // Updated optional
+  pin?: string;        // Added to match DB
   is_active: boolean;
   linked_user_id: string | null;
   claimed_at: string | null;
@@ -93,6 +94,7 @@ const InventoryTab = () => {
     setGenerating(true);
     const newCards: GeneratedCard[] = [];
 
+    // Generate unique IDs locally
     for (let i = 0; i < count; i++) {
       newCards.push({
         card_id: generateCardId(),
@@ -100,18 +102,20 @@ const InventoryTab = () => {
       });
     }
 
+    // FIX: Map 'secret_pin' to the database column 'pin'
     const { error } = await supabase.from("nfc_cards").insert(
       newCards.map((card) => ({
         card_id: card.card_id,
-        secret_pin: card.secret_pin,
+        pin: card.secret_pin, // <--- THIS WAS THE FIX
         is_active: true,
       }))
     );
 
     if (error) {
+      console.error("Generate Error:", error); // Log actual error to console
       toast({
         title: "Error",
-        description: "Failed to generate cards. Some IDs might already exist.",
+        description: error.message || "Failed to generate cards.",
         variant: "destructive",
       });
     } else {
@@ -130,10 +134,15 @@ const InventoryTab = () => {
 
   const handleUnclaimCard = async (cardId: string) => {
     setUnclaimingId(cardId);
-    
-    const { data: success, error } = await supabase.rpc('admin_unclaim_card', {
-      target_card_id: cardId
-    });
+
+    // We update directly instead of using RPC if RPC doesn't exist
+    const { error } = await supabase
+      .from('nfc_cards')
+      .update({
+        linked_user_id: null,
+        claimed_at: null
+      })
+      .eq('card_id', cardId);
 
     if (error) {
       toast({
@@ -141,18 +150,12 @@ const InventoryTab = () => {
         description: error.message || "Failed to unclaim card.",
         variant: "destructive",
       });
-    } else if (success) {
+    } else {
       toast({
         title: "Success!",
         description: "Card has been unclaimed and is now available.",
       });
       fetchAllCards();
-    } else {
-      toast({
-        title: "Error",
-        description: "Card not found.",
-        variant: "destructive",
-      });
     }
 
     setUnclaimingId(null);
@@ -241,7 +244,7 @@ const InventoryTab = () => {
             Generate Cards
           </h2>
           {!showGenerator && (
-            <Button variant="hero" onClick={() => setShowGenerator(true)}>
+            <Button variant="default" onClick={() => setShowGenerator(true)}>
               <Plus className="w-4 h-4 mr-2" />
               Bulk Generate
             </Button>
@@ -260,7 +263,7 @@ const InventoryTab = () => {
               className="max-w-xs"
             />
             <Button
-              variant="hero"
+              variant="default"
               onClick={handleBulkGenerate}
               disabled={generating}
             >
@@ -288,7 +291,7 @@ const InventoryTab = () => {
               <h3 className="text-lg font-semibold text-foreground">
                 Newly Generated Cards
               </h3>
-              <Button variant="glass" size="sm" onClick={copyAllGenerated}>
+              <Button variant="outline" size="sm" onClick={copyAllGenerated}>
                 <Copy className="w-4 h-4 mr-2" />
                 Copy All
               </Button>
@@ -387,7 +390,8 @@ const InventoryTab = () => {
                   <TableCell className="font-mono text-primary">
                     {card.card_id}
                   </TableCell>
-                  <TableCell className="font-mono">{card.secret_pin}</TableCell>
+                  {/* FIX: Display 'pin' from DB or 'secret_pin' if local */}
+                  <TableCell className="font-mono">{card.pin || card.secret_pin}</TableCell>
                   <TableCell className="text-sm text-muted-foreground max-w-[200px] truncate">
                     {baseUrl}/c/{card.card_id}
                   </TableCell>
@@ -453,11 +457,10 @@ const InventoryTab = () => {
                   </TableCell>
                   <TableCell>
                     <span
-                      className={`px-2 py-1 rounded-full text-xs font-medium ${
-                        card.linked_user_id
+                      className={`px-2 py-1 rounded-full text-xs font-medium ${card.linked_user_id
                           ? "bg-green-500/20 text-green-400"
                           : "bg-blue-500/20 text-blue-400"
-                      }`}
+                        }`}
                     >
                       {card.linked_user_id ? "Claimed" : "Available"}
                     </span>

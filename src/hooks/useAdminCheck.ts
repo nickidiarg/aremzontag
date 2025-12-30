@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "./useAuth";
 
-const ADMIN_EMAIL = "admin@example.com";
+const ADMIN_EMAIL = "aremoayomide13@gmail.com";
 
 export function useAdminCheck() {
   const { user, loading: authLoading } = useAuth();
@@ -12,7 +12,7 @@ export function useAdminCheck() {
   useEffect(() => {
     const checkAdminStatus = async () => {
       if (authLoading) return;
-      
+
       if (!user) {
         setIsAdmin(false);
         setLoading(false);
@@ -39,7 +39,7 @@ export function useAdminCheck() {
       } else {
         setIsAdmin(false);
       }
-      
+
       setLoading(false);
     };
 

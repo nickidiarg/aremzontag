@@ -30,6 +30,7 @@ const Auth = () => {
             variant: "destructive",
           });
         } else {
+          // Success! Go to dashboard
           toast({
             title: "Welcome back!",
             description: "You've been logged in successfully.",
@@ -40,37 +41,29 @@ const Auth = () => {
         if (!username.trim()) {
           toast({
             title: "Username required",
-            description: "Please enter a username for your profile.",
+            description: "Please enter a username.",
             variant: "destructive",
           });
           setLoading(false);
           return;
         }
-        
+
         const { error } = await signUp(email, password, username);
         if (error) {
-          if (error.message.includes("already registered")) {
-            toast({
-              title: "Account exists",
-              description: "An account with this email already exists. Try logging in instead.",
-              variant: "destructive",
-            });
-          } else {
-            toast({
-              title: "Sign up failed",
-              description: error.message,
-              variant: "destructive",
-            });
-          }
+          toast({
+            title: "Sign up failed",
+            description: error.message,
+            variant: "destructive",
+          });
         } else {
           toast({
             title: "Account created!",
-            description: "Welcome to LinkBio. Let's set up your profile.",
+            description: "Welcome! Let's set up your profile.",
           });
           navigate("/dashboard");
         }
       }
-    } catch (error) {
+    } catch (error: any) {
       toast({
         title: "Error",
         description: "Something went wrong. Please try again.",
@@ -173,14 +166,13 @@ const Auth = () => {
 
               <Button
                 type="submit"
-                variant="hero"
                 size="lg"
-                className="w-full mt-6"
+                className="w-full mt-6 bg-primary hover:bg-primary/90 text-primary-foreground"
                 disabled={loading}
               >
                 {loading ? (
                   <>
-                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <Loader2 className="w-4 h-4 animate-spin mr-2" />
                     {isLogin ? "Signing in..." : "Creating account..."}
                   </>
                 ) : (
