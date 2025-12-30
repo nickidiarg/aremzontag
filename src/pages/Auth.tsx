@@ -1,13 +1,15 @@
 import { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
+import { supabase } from "@/integrations/supabase/client"; // Added Supabase client
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { ArrowLeft, Mail, Lock, User, Loader2 } from "lucide-react";
+import { ArrowLeft, Mail, Lock, User, Loader2, KeyRound } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 const Auth = () => {
   const [isLogin, setIsLogin] = useState(true);
+  const [isReset, setIsReset] = useState(false); // New state for Reset Mode
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [username, setUsername] = useState("");
@@ -15,6 +17,33 @@ const Auth = () => {
   const { signIn, signUp } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
+
+  const handleResetPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: window.location.origin + "/dashboard", // Redirects them back to app after clicking email link
+      });
+
+      if (error) throw error;
+
+      toast({
+        title: "Check your email",
+        description: "We sent you a password reset link.",
+      });
+      setIsReset(false); // Go back to login screen
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -30,7 +59,6 @@ const Auth = () => {
             variant: "destructive",
           });
         } else {
-          // Success! Go to dashboard
           toast({
             title: "Welcome back!",
             description: "You've been logged in successfully.",
@@ -101,99 +129,163 @@ const Auth = () => {
                 LinkBio
               </h1>
               <p className="text-muted-foreground">
-                {isLogin ? "Welcome back" : "Create your account"}
+                {isReset
+                  ? "Reset your password"
+                  : isLogin
+                    ? "Welcome back"
+                    : "Create your account"
+                }
               </p>
             </div>
 
-            {/* Form */}
-            <form onSubmit={handleSubmit} className="space-y-4">
-              {!isLogin && (
+            {/* RESET PASSWORD FORM */}
+            {isReset ? (
+              <form onSubmit={handleResetPassword} className="space-y-4">
                 <div className="space-y-2">
                   <label className="text-sm font-medium text-foreground">
-                    Username
+                    Enter your email address
                   </label>
                   <div className="relative">
-                    <User className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                    <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                     <Input
-                      type="text"
-                      placeholder="yourname"
-                      value={username}
-                      onChange={(e) => setUsername(e.target.value)}
+                      type="email"
+                      placeholder="you@example.com"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
                       className="pl-11"
-                      required={!isLogin}
+                      required
                     />
                   </div>
-                  <p className="text-xs text-muted-foreground">
-                    This will be your profile URL: linkbio.app/{username.toLowerCase().replace(/\s+/g, '_') || 'yourname'}
+                </div>
+
+                <Button
+                  type="submit"
+                  size="lg"
+                  className="w-full mt-6 bg-primary hover:bg-primary/90 text-primary-foreground"
+                  disabled={loading}
+                >
+                  {loading ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                      Sending Link...
+                    </>
+                  ) : (
+                    "Send Reset Link"
+                  )}
+                </Button>
+
+                <div className="mt-4 text-center">
+                  <button
+                    type="button"
+                    onClick={() => setIsReset(false)}
+                    className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+                  >
+                    Back to Login
+                  </button>
+                </div>
+              </form>
+            ) : (
+              /* LOGIN / SIGNUP FORM */
+              <form onSubmit={handleSubmit} className="space-y-4">
+                {!isLogin && (
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-foreground">
+                      Username
+                    </label>
+                    <div className="relative">
+                      <User className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                      <Input
+                        type="text"
+                        placeholder="yourname"
+                        value={username}
+                        onChange={(e) => setUsername(e.target.value)}
+                        className="pl-11"
+                        required={!isLogin}
+                      />
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      This will be your profile URL: linkbio.app/{username.toLowerCase().replace(/\s+/g, '_') || 'yourname'}
+                    </p>
+                  </div>
+                )}
+
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-foreground">
+                    Email
+                  </label>
+                  <div className="relative">
+                    <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                    <Input
+                      type="email"
+                      placeholder="you@example.com"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      className="pl-11"
+                      required
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <label className="text-sm font-medium text-foreground">
+                      Password
+                    </label>
+                    {isLogin && (
+                      <button
+                        type="button"
+                        onClick={() => setIsReset(true)}
+                        className="text-xs text-primary hover:underline"
+                      >
+                        Forgot password?
+                      </button>
+                    )}
+                  </div>
+                  <div className="relative">
+                    <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                    <Input
+                      type="password"
+                      placeholder="••••••••"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      className="pl-11"
+                      required
+                      minLength={6}
+                    />
+                  </div>
+                </div>
+
+                <Button
+                  type="submit"
+                  size="lg"
+                  className="w-full mt-6 bg-primary hover:bg-primary/90 text-primary-foreground"
+                  disabled={loading}
+                >
+                  {loading ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                      {isLogin ? "Signing in..." : "Creating account..."}
+                    </>
+                  ) : (
+                    isLogin ? "Sign In" : "Create Account"
+                  )}
+                </Button>
+
+                {/* Toggle Login/Signup */}
+                <div className="mt-6 text-center">
+                  <p className="text-muted-foreground text-sm">
+                    {isLogin ? "Don't have an account?" : "Already have an account?"}{" "}
+                    <button
+                      type="button"
+                      onClick={() => setIsLogin(!isLogin)}
+                      className="text-primary hover:text-primary/80 font-medium transition-colors"
+                    >
+                      {isLogin ? "Sign up" : "Sign in"}
+                    </button>
                   </p>
                 </div>
-              )}
-
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-foreground">
-                  Email
-                </label>
-                <div className="relative">
-                  <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                  <Input
-                    type="email"
-                    placeholder="you@example.com"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    className="pl-11"
-                    required
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-foreground">
-                  Password
-                </label>
-                <div className="relative">
-                  <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                  <Input
-                    type="password"
-                    placeholder="••••••••"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    className="pl-11"
-                    required
-                    minLength={6}
-                  />
-                </div>
-              </div>
-
-              <Button
-                type="submit"
-                size="lg"
-                className="w-full mt-6 bg-primary hover:bg-primary/90 text-primary-foreground"
-                disabled={loading}
-              >
-                {loading ? (
-                  <>
-                    <Loader2 className="w-4 h-4 animate-spin mr-2" />
-                    {isLogin ? "Signing in..." : "Creating account..."}
-                  </>
-                ) : (
-                  isLogin ? "Sign In" : "Create Account"
-                )}
-              </Button>
-            </form>
-
-            {/* Toggle */}
-            <div className="mt-6 text-center">
-              <p className="text-muted-foreground text-sm">
-                {isLogin ? "Don't have an account?" : "Already have an account?"}{" "}
-                <button
-                  type="button"
-                  onClick={() => setIsLogin(!isLogin)}
-                  className="text-primary hover:text-primary/80 font-medium transition-colors"
-                >
-                  {isLogin ? "Sign up" : "Sign in"}
-                </button>
-              </p>
-            </div>
+              </form>
+            )}
           </div>
         </div>
       </main>

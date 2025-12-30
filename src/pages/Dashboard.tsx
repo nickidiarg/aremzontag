@@ -19,8 +19,6 @@ import {
   Loader2,
   Copy,
   Check,
-  CreditCard,
-  Eye,
   Shield,
   Upload
 } from "lucide-react";
@@ -56,14 +54,25 @@ const Dashboard = () => {
   const [viewCount, setViewCount] = useState<number>(0);
   const [uploading, setUploading] = useState(false);
 
-  // Form state
-  const [displayName, setDisplayName] = useState("");
-  const [bio, setBio] = useState("");
-  const [avatarUrl, setAvatarUrl] = useState("");
-  const [phoneNumber, setPhoneNumber] = useState("");
-  const [whatsappLink, setWhatsappLink] = useState("");
-  const [instagramLink, setInstagramLink] = useState("");
-  const [tiktokLink, setTiktokLink] = useState("");
+  // --- AUTO-SAVE FIX: Initialize state from LocalStorage if available ---
+  const [displayName, setDisplayName] = useState(localStorage.getItem("draft_displayName") || "");
+  const [bio, setBio] = useState(localStorage.getItem("draft_bio") || "");
+  const [avatarUrl, setAvatarUrl] = useState(localStorage.getItem("draft_avatarUrl") || "");
+  const [phoneNumber, setPhoneNumber] = useState(localStorage.getItem("draft_phoneNumber") || "");
+  const [whatsappLink, setWhatsappLink] = useState(localStorage.getItem("draft_whatsappLink") || "");
+  const [instagramLink, setInstagramLink] = useState(localStorage.getItem("draft_instagramLink") || "");
+  const [tiktokLink, setTiktokLink] = useState(localStorage.getItem("draft_tiktokLink") || "");
+
+  // --- AUTO-SAVE FIX: Save to LocalStorage whenever inputs change ---
+  useEffect(() => {
+    localStorage.setItem("draft_displayName", displayName);
+    localStorage.setItem("draft_bio", bio);
+    localStorage.setItem("draft_avatarUrl", avatarUrl);
+    localStorage.setItem("draft_phoneNumber", phoneNumber);
+    localStorage.setItem("draft_whatsappLink", whatsappLink);
+    localStorage.setItem("draft_instagramLink", instagramLink);
+    localStorage.setItem("draft_tiktokLink", tiktokLink);
+  }, [displayName, bio, avatarUrl, phoneNumber, whatsappLink, instagramLink, tiktokLink]);
 
   useEffect(() => {
     if (!authLoading) {
@@ -104,7 +113,6 @@ const Dashboard = () => {
 
   const fetchProfile = async () => {
     try {
-      // FIX: Changed 'user_id' to 'id' to match database
       const { data, error } = await supabase
         .from("profiles")
         .select("*")
@@ -115,13 +123,16 @@ const Dashboard = () => {
 
       if (data) {
         setProfile(data);
-        setDisplayName(data.display_name || "");
-        setBio(data.bio || "");
-        setAvatarUrl(data.avatar_url || "");
-        setPhoneNumber(data.phone_number || "");
-        setWhatsappLink(data.whatsapp_link || "");
-        setInstagramLink(data.instagram_link || "");
-        setTiktokLink(data.tiktok_link || "");
+
+        // --- AUTO-SAVE FIX: Only load from DB if there is NO draft ---
+        // This prevents the DB from overwriting what the user was just typing
+        if (!localStorage.getItem("draft_displayName")) setDisplayName(data.display_name || "");
+        if (!localStorage.getItem("draft_bio")) setBio(data.bio || "");
+        if (!localStorage.getItem("draft_avatarUrl")) setAvatarUrl(data.avatar_url || "");
+        if (!localStorage.getItem("draft_phoneNumber")) setPhoneNumber(data.phone_number || "");
+        if (!localStorage.getItem("draft_whatsappLink")) setWhatsappLink(data.whatsapp_link || "");
+        if (!localStorage.getItem("draft_instagramLink")) setInstagramLink(data.instagram_link || "");
+        if (!localStorage.getItem("draft_tiktokLink")) setTiktokLink(data.tiktok_link || "");
       } else {
         console.log("No profile found, waiting for user to create one.");
       }
@@ -144,7 +155,6 @@ const Dashboard = () => {
     try {
       const usernameToUse = profile?.username || `user_${user.id.slice(0, 6)}`;
 
-      // FIX: Changed 'user_id' to 'id' in the upsert
       const { data, error } = await supabase
         .from("profiles")
         .upsert({
@@ -166,6 +176,16 @@ const Dashboard = () => {
 
       if (data) {
         setProfile(data as Profile);
+
+        // --- AUTO-SAVE FIX: Clear drafts on successful save ---
+        localStorage.removeItem("draft_displayName");
+        localStorage.removeItem("draft_bio");
+        localStorage.removeItem("draft_avatarUrl");
+        localStorage.removeItem("draft_phoneNumber");
+        localStorage.removeItem("draft_whatsappLink");
+        localStorage.removeItem("draft_instagramLink");
+        localStorage.removeItem("draft_tiktokLink");
+
         toast({
           title: "Saved!",
           description: "Your profile has been updated.",
