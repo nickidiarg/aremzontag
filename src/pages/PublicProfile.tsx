@@ -279,14 +279,25 @@ const PublicProfile = ({ username: propUsername }: PublicProfileProps) => {
           )}
         </div>
 
-        <footer className="mt-12 text-center">
-          <Link
-            to="/"
-            className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
+        {/* --- NEW FOOTER: Viral Loop & WhatsApp CTA --- */}
+        <footer className="mt-16 pb-10 text-center space-y-4">
+          <div className="flex items-center justify-center gap-2">
+            <div className="h-px w-12 bg-border" />
+            <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+              Powered by AremzonTag
+            </span>
+            <div className="h-px w-12 bg-border" />
+          </div>
+
+          <a
+            href="https://wa.me/+2348065545851?text=Hi, I saw an NFC card and I want to buy one!"
+            target="_blank"
+            rel="noreferrer"
+            className="inline-flex items-center gap-2 bg-primary/10 hover:bg-primary/20 text-primary px-6 py-3 rounded-full transition-all transform hover:scale-105 font-medium"
           >
-            <Link2 className="w-4 h-4" />
-            Powered by LinkBio
-          </Link>
+            <span>Get Your Own NFC Card</span>
+            <ExternalLink className="w-4 h-4" />
+          </a>
         </footer>
       </main>
     </div>
