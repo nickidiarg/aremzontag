@@ -1,342 +1,176 @@
 import { useState, useEffect } from "react";
-import { useNavigate, Link } from "react-router-dom";
-import { useAuth } from "@/hooks/useAuth";
+import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { ArrowLeft, Mail, Lock, User, Loader2 } from "lucide-react";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
+import { Loader2, User, Mail, Lock } from "lucide-react";
 
 const Auth = () => {
-  const [isLogin, setIsLogin] = useState(true);
-  const [isReset, setIsReset] = useState(false);
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [username, setUsername] = useState("");
-  const [loading, setLoading] = useState(false);
-  const { signIn, signUp } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
+  const [loading, setLoading] = useState(false);
 
-  // FIX: Clear inputs when switching modes (Fixes Bug #1)
+  // Form State
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [username, setUsername] = useState(""); // Captures the unique name
+  const [activeTab, setActiveTab] = useState("login");
+
   useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session) navigate("/dashboard");
+    });
+  }, [navigate]);
+
+  const onTabChange = (value: string) => {
+    setActiveTab(value);
     setEmail("");
     setPassword("");
     setUsername("");
-  }, [isLogin, isReset]);
+  };
 
-  // NEW: Google Login Function
+  const handleUsernameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    // Force lowercase and remove spaces (clean username)
+    const val = e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, '');
+    setUsername(val);
+  };
+
+  const handleAuth = async (type: "login" | "signup") => {
+    if (!email || !password) {
+      toast({ title: "Missing Fields", description: "Please enter email and password", variant: "destructive" });
+      return;
+    }
+
+    // Only check username length if we are signing up
+    if (type === "signup" && username.length < 3) {
+      toast({ title: "Invalid Username", description: "Username must be at least 3 characters", variant: "destructive" });
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      if (type === "signup") {
+        // 1. Check if username is taken BEFORE signing up
+        const { data: existing } = await supabase.from("profiles").select("username").eq("username", username).single();
+
+        // If 'existing' is true, it means someone has that name
+        if (existing) {
+          throw new Error("This username is already taken. Please choose another.");
+        }
+
+        // 2. Sign up and pass the username so the database knows it
+        const { error } = await supabase.auth.signUp({
+          email,
+          password,
+          options: {
+            data: {
+              username: username, // Important: Sends the username to the database trigger
+            }
+          }
+        });
+        if (error) throw error;
+        toast({ title: "Success!", description: "Check your email to confirm your account." });
+
+      } else {
+        // Login Logic
+        const { error } = await supabase.auth.signInWithPassword({ email, password });
+        if (error) throw error;
+        navigate("/dashboard");
+      }
+    } catch (error: any) {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleGoogleLogin = async () => {
     try {
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
-        options: {
-          redirectTo: window.location.origin + "/dashboard",
-        },
+        options: { redirectTo: `${window.location.origin}/dashboard` },
       });
       if (error) throw error;
     } catch (error: any) {
-      toast({
-        title: "Google Login Failed",
-        description: error.message,
-        variant: "destructive"
-      });
-    }
-  };
-
-  const handleResetPassword = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
-    try {
-      const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        // FIX: Redirect to the new UpdatePassword page (Fixes Bug #9)
-        redirectTo: window.location.origin + "/update-password",
-      });
-
-      if (error) throw error;
-
-      toast({
-        title: "Check your email",
-        description: "We sent you a password reset link.",
-      });
-      setIsReset(false);
-    } catch (error: any) {
-      toast({
-        title: "Error",
-        description: error.message,
-        variant: "destructive",
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
-
-    try {
-      if (isLogin) {
-        const { error } = await signIn(email, password);
-        if (error) {
-          toast({
-            title: "Login failed",
-            description: error.message,
-            variant: "destructive",
-          });
-        } else {
-          toast({
-            title: "Welcome back!",
-            description: "You've been logged in successfully.",
-          });
-          navigate("/dashboard");
-        }
-      } else {
-        if (!username.trim()) {
-          toast({
-            title: "Username required",
-            description: "Please enter a username.",
-            variant: "destructive",
-          });
-          setLoading(false);
-          return;
-        }
-
-        // FIX: Check if username exists first (Fixes Bug #7)
-        const { data: existingUser } = await supabase
-          .from('profiles')
-          .select('username')
-          .eq('username', username.toLowerCase().trim())
-          .maybeSingle();
-
-        if (existingUser) {
-          toast({
-            title: "Username taken",
-            description: "Please choose a different username.",
-            variant: "destructive"
-          });
-          setLoading(false);
-          return;
-        }
-
-        const { error } = await signUp(email, password, username);
-        if (error) {
-          toast({
-            title: "Sign up failed",
-            description: error.message,
-            variant: "destructive",
-          });
-        } else {
-          toast({
-            title: "Account created!",
-            description: "Welcome! Let's set up your profile.",
-          });
-          navigate("/dashboard");
-        }
-      }
-    } catch (error: any) {
-      toast({
-        title: "Error",
-        description: "Something went wrong. Please try again.",
-        variant: "destructive",
-      });
-    } finally {
-      setLoading(false);
+      toast({ title: "Error", description: error.message, variant: "destructive" });
     }
   };
 
   return (
-    <div className="min-h-screen animated-gradient-bg flex flex-col">
-      <div className="fixed inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-primary/20 rounded-full blur-3xl" />
-        <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-accent/20 rounded-full blur-3xl" />
-      </div>
+    <div className="min-h-screen flex items-center justify-center p-4 animated-gradient-bg">
+      <Card className="w-full max-w-md glass-card border-none">
+        <CardHeader className="text-center">
+          <CardTitle className="text-2xl font-bold">Welcome to AremzonTag</CardTitle>
+          <CardDescription>Sign in to manage your NFC profile</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Tabs value={activeTab} onValueChange={onTabChange} className="w-full">
+            <TabsList className="grid w-full grid-cols-2 mb-4">
+              <TabsTrigger value="login">Login</TabsTrigger>
+              <TabsTrigger value="signup">Sign Up</TabsTrigger>
+            </TabsList>
 
-      <header className="relative z-10 p-4">
-        <Link to="/" className="inline-flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors">
-          <ArrowLeft className="w-4 h-4" />
-          Back to home
-        </Link>
-      </header>
+            <div className="space-y-4">
+              {/* Show Username field ONLY for Signup */}
+              {activeTab === "signup" && (
+                <div className="relative">
+                  <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Username (unique)"
+                    value={username}
+                    onChange={handleUsernameChange}
+                    className="pl-9"
+                  />
+                </div>
+              )}
 
-      <main className="relative z-10 flex-1 flex items-center justify-center p-4">
-        <div className="w-full max-w-md">
-          <div className="glass-card rounded-2xl p-8">
-            <div className="text-center mb-8">
-              <h1 className="text-3xl font-display font-bold text-gradient-hero mb-2">
-                LinkBio
-              </h1>
-              <p className="text-muted-foreground">
-                {isReset
-                  ? "Reset your password"
-                  : isLogin
-                    ? "Welcome back"
-                    : "Create your account"
-                }
-              </p>
+              <div className="relative">
+                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                <Input
+                  type="email"
+                  placeholder="Email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="pl-9"
+                />
+              </div>
+
+              <div className="relative">
+                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                <Input
+                  type="password"
+                  placeholder="Password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="pl-9"
+                />
+              </div>
+
+              <Button className="w-full" onClick={() => handleAuth(activeTab as any)} disabled={loading}>
+                {loading ? <Loader2 className="animate-spin mr-2" /> : (activeTab === "login" ? "Sign In" : "Sign Up")}
+              </Button>
             </div>
 
-            {isReset ? (
-              <form onSubmit={handleResetPassword} className="space-y-4">
-                <div className="space-y-2">
-                  <label className="text-sm font-medium text-foreground">
-                    Enter your email address
-                  </label>
-                  <div className="relative">
-                    <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                    <Input
-                      type="email"
-                      placeholder="you@example.com"
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      className="pl-11"
-                      required
-                    />
-                  </div>
-                </div>
-
-                <Button
-                  type="submit"
-                  size="lg"
-                  className="w-full mt-6 bg-primary hover:bg-primary/90 text-primary-foreground"
-                  disabled={loading}
-                >
-                  {loading ? (
-                    <>
-                      <Loader2 className="w-4 h-4 animate-spin mr-2" />
-                      Sending Link...
-                    </>
-                  ) : (
-                    "Send Reset Link"
-                  )}
-                </Button>
-
-                <div className="mt-4 text-center">
-                  <button
-                    type="button"
-                    onClick={() => setIsReset(false)}
-                    className="text-sm text-muted-foreground hover:text-foreground transition-colors"
-                  >
-                    Back to Login
-                  </button>
-                </div>
-              </form>
-            ) : (
-              <>
-                <form onSubmit={handleSubmit} className="space-y-4">
-                  {!isLogin && (
-                    <div className="space-y-2">
-                      <label className="text-sm font-medium text-foreground">
-                        Username
-                      </label>
-                      <div className="relative">
-                        <User className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                        <Input
-                          type="text"
-                          placeholder="yourname"
-                          value={username}
-                          onChange={(e) => setUsername(e.target.value)}
-                          className="pl-11"
-                          required={!isLogin}
-                        />
-                      </div>
-                      <p className="text-xs text-muted-foreground">
-                        This will be your profile URL: linkbio.app/{username.toLowerCase().replace(/\s+/g, '_') || 'yourname'}
-                      </p>
-                    </div>
-                  )}
-
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium text-foreground">
-                      Email
-                    </label>
-                    <div className="relative">
-                      <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                      <Input
-                        type="email"
-                        placeholder="you@example.com"
-                        value={email}
-                        onChange={(e) => setEmail(e.target.value)}
-                        className="pl-11"
-                        required
-                      />
-                    </div>
-                  </div>
-
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <label className="text-sm font-medium text-foreground">
-                        Password
-                      </label>
-                      {isLogin && (
-                        <button
-                          type="button"
-                          onClick={() => setIsReset(true)}
-                          className="text-xs text-primary hover:underline"
-                        >
-                          Forgot password?
-                        </button>
-                      )}
-                    </div>
-                    <div className="relative">
-                      <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                      <Input
-                        type="password"
-                        placeholder="••••••••"
-                        value={password}
-                        onChange={(e) => setPassword(e.target.value)}
-                        className="pl-11"
-                        required
-                        minLength={6}
-                      />
-                    </div>
-                  </div>
-
-                  <Button
-                    type="submit"
-                    size="lg"
-                    className="w-full mt-6 bg-primary hover:bg-primary/90 text-primary-foreground"
-                    disabled={loading}
-                  >
-                    {loading ? (
-                      <>
-                        <Loader2 className="w-4 h-4 animate-spin mr-2" />
-                        {isLogin ? "Signing in..." : "Creating account..."}
-                      </>
-                    ) : (
-                      isLogin ? "Sign In" : "Create Account"
-                    )}
-                  </Button>
-                </form>
-
-                {/* --- GOOGLE LOGIN BUTTON --- */}
-                <div className="relative my-6">
-                  <div className="absolute inset-0 flex items-center"><span className="w-full border-t" /></div>
-                  <div className="relative flex justify-center text-xs uppercase"><span className="bg-background px-2 text-muted-foreground">Or continue with</span></div>
-                </div>
-
-                <Button variant="outline" type="button" className="w-full" onClick={handleGoogleLogin}>
-                  <svg className="mr-2 h-4 w-4" aria-hidden="true" focusable="false" data-prefix="fab" data-icon="google" role="img" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 488 512"><path fill="currentColor" d="M488 261.8C488 403.3 391.1 504 248 504 110.8 504 0 393.2 0 256S110.8 8 248 8c66.8 0 123 24.5 166.3 64.9l-67.5 64.9C258.5 52.6 94.3 116.6 94.3 256c0 86.5 69.1 156.6 153.7 156.6 98.2 0 135-70.4 140.8-106.9H248v-85.3h236.1c2.3 12.7 3.9 24.9 3.9 41.4z"></path></svg>
-                  Google
-                </Button>
-
-                <div className="mt-6 text-center">
-                  <p className="text-muted-foreground text-sm">
-                    {isLogin ? "Don't have an account?" : "Already have an account?"}{" "}
-                    <button
-                      type="button"
-                      onClick={() => setIsLogin(!isLogin)}
-                      className="text-primary hover:text-primary/80 font-medium transition-colors"
-                    >
-                      {isLogin ? "Sign up" : "Sign in"}
-                    </button>
-                  </p>
-                </div>
-              </>
+            {activeTab === "login" && (
+              <div className="mt-2 text-center">
+                {/* Corrected "className" here */}
+                <a href="/forgot-password" className="text-xs text-muted-foreground hover:underline">Forgot password?</a>
+              </div>
             )}
-          </div>
-        </div>
-      </main>
+
+            <div className="relative my-4">
+              <div className="absolute inset-0 flex items-center"><span className="w-full border-t" /></div>
+              <div className="relative flex justify-center text-xs uppercase"><span className="bg-background px-2 text-muted-foreground">Or continue with</span></div>
+            </div>
+
+            <Button variant="outline" className="w-full" onClick={handleGoogleLogin}>Google</Button>
+          </Tabs>
+        </CardContent>
+      </Card>
     </div>
   );
 };
