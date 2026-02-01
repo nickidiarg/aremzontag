@@ -12,7 +12,6 @@ import {
   User,
   LogOut,
   Save,
-  ExternalLink,
   Link2,
   Loader2,
   Copy,
@@ -45,23 +44,33 @@ const Dashboard = () => {
   const { isAdmin } = useAdminCheck();
   const navigate = useNavigate();
   const { toast } = useToast();
+
+  // Data State
   const [profile, setProfile] = useState<Profile | null>(null);
   const [linkedCard, setLinkedCard] = useState<NfcCard | null>(null);
+
+  // Loading States
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [copied, setCopied] = useState(false);
   const [uploading, setUploading] = useState(false);
 
-  // --- AUTO-SAVE: Initialize state from LocalStorage ---
-  const [displayName, setDisplayName] = useState(localStorage.getItem("draft_displayName") || "");
-  const [bio, setBio] = useState(localStorage.getItem("draft_bio") || "");
-  const [avatarUrl, setAvatarUrl] = useState(localStorage.getItem("draft_avatarUrl") || "");
-  const [phoneNumber, setPhoneNumber] = useState(localStorage.getItem("draft_phoneNumber") || "");
-  const [whatsappLink, setWhatsappLink] = useState(localStorage.getItem("draft_whatsappLink") || "");
-  const [instagramLink, setInstagramLink] = useState(localStorage.getItem("draft_instagramLink") || "");
-  const [tiktokLink, setTiktokLink] = useState(localStorage.getItem("draft_tiktokLink") || "");
+  // Form Fields
+  const [displayName, setDisplayName] = useState("");
+  const [bio, setBio] = useState("");
+  const [avatarUrl, setAvatarUrl] = useState("");
+  const [phoneNumber, setPhoneNumber] = useState("");
+  const [whatsappLink, setWhatsappLink] = useState("");
+  const [instagramLink, setInstagramLink] = useState("");
+  const [tiktokLink, setTiktokLink] = useState("");
 
-  // --- AUTO-SAVE: Save to LocalStorage on change ---
+  // New Password State
+  const [newPassword, setNewPassword] = useState("");
+
+  // Track if changes were made (For Bug #2)
+  const [hasChanges, setHasChanges] = useState(false);
+
+  // --- AUTO-SAVE LOGIC ---
   useEffect(() => {
     localStorage.setItem("draft_displayName", displayName);
     localStorage.setItem("draft_bio", bio);
@@ -70,12 +79,24 @@ const Dashboard = () => {
     localStorage.setItem("draft_whatsappLink", whatsappLink);
     localStorage.setItem("draft_instagramLink", instagramLink);
     localStorage.setItem("draft_tiktokLink", tiktokLink);
-  }, [displayName, bio, avatarUrl, phoneNumber, whatsappLink, instagramLink, tiktokLink]);
+
+    // Check if current input differs from saved DB profile (Bug #2 Fix)
+    if (profile) {
+      const isDifferent =
+        displayName !== (profile.display_name || "") ||
+        bio !== (profile.bio || "") ||
+        avatarUrl !== (profile.avatar_url || "") ||
+        phoneNumber !== (profile.phone_number || "") ||
+        whatsappLink !== (profile.whatsapp_link || "") ||
+        instagramLink !== (profile.instagram_link || "") ||
+        tiktokLink !== (profile.tiktok_link || "");
+
+      setHasChanges(isDifferent);
+    }
+  }, [displayName, bio, avatarUrl, phoneNumber, whatsappLink, instagramLink, tiktokLink, profile]);
 
   useEffect(() => {
-    if (!authLoading) {
-      if (!user) navigate("/auth");
-    }
+    if (!authLoading && !user) navigate("/auth");
   }, [user, authLoading, navigate]);
 
   useEffect(() => {
@@ -108,7 +129,7 @@ const Dashboard = () => {
 
       if (data) {
         setProfile(data);
-        // Only load from DB if draft is empty to prevent overwriting user work
+        // Load from draft if exists, else DB
         if (!localStorage.getItem("draft_displayName")) setDisplayName(data.display_name || "");
         if (!localStorage.getItem("draft_bio")) setBio(data.bio || "");
         if (!localStorage.getItem("draft_avatarUrl")) setAvatarUrl(data.avatar_url || "");
@@ -124,15 +145,43 @@ const Dashboard = () => {
     }
   };
 
+  // --- VALIDATION HELPERS (Bug #3 & #5) ---
+  const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    // Only allow numbers and max 11 digits
+    const val = e.target.value.replace(/\D/g, '').slice(0, 11);
+    setPhoneNumber(val);
+  };
+
+  const validateLinks = () => {
+    if (tiktokLink && !tiktokLink.toLowerCase().includes("tiktok.com")) {
+      toast({ title: "Invalid Link", description: "TikTok link must contain 'tiktok.com'", variant: "destructive" });
+      return false;
+    }
+    if (instagramLink && !instagramLink.toLowerCase().includes("instagram.com")) {
+      toast({ title: "Invalid Link", description: "Instagram link must contain 'instagram.com'", variant: "destructive" });
+      return false;
+    }
+    if (whatsappLink && !whatsappLink.toLowerCase().includes("wa.me")) {
+      toast({ title: "Invalid Link", description: "WhatsApp link should be like 'https://wa.me/number'", variant: "destructive" });
+      return false;
+    }
+    return true;
+  };
+
   const handleSave = async () => {
     if (!user) return;
+    if (!validateLinks()) return;
+
     setSaving(true);
     try {
       const usernameToUse = profile?.username || `user_${user.id.slice(0, 6)}`;
+
+      // FIX: Added 'user_id' to match database schema
       const { data, error } = await supabase
         .from("profiles")
         .upsert({
           id: user.id,
+          user_id: user.id, // <--- THIS WAS THE MISSING LINE
           username: usernameToUse,
           display_name: displayName,
           bio,
@@ -150,7 +199,7 @@ const Dashboard = () => {
 
       if (data) {
         setProfile(data as Profile);
-        // Clear drafts on success
+        // Clear drafts
         localStorage.removeItem("draft_displayName");
         localStorage.removeItem("draft_bio");
         localStorage.removeItem("draft_avatarUrl");
@@ -159,6 +208,7 @@ const Dashboard = () => {
         localStorage.removeItem("draft_instagramLink");
         localStorage.removeItem("draft_tiktokLink");
 
+        setHasChanges(false); // Disable button again
         toast({ title: "Saved!", description: "Profile updated successfully." });
       }
     } catch (error: any) {
@@ -166,6 +216,23 @@ const Dashboard = () => {
     } finally {
       setSaving(false);
     }
+  };
+
+  const handlePasswordUpdate = async () => {
+    if (!newPassword) return;
+    if (newPassword.length < 6) {
+      toast({ title: "Too short", description: "Password must be at least 6 characters", variant: "destructive" });
+      return;
+    }
+    setSaving(true);
+    const { error } = await supabase.auth.updateUser({ password: newPassword });
+    if (error) {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    } else {
+      toast({ title: "Success", description: "Your password has been updated!" });
+      setNewPassword("");
+    }
+    setSaving(false);
   };
 
   const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -217,7 +284,7 @@ const Dashboard = () => {
 
       <main className="container mx-auto px-4 py-8 max-w-2xl">
 
-        {/* --- NEW: BUY CARD BANNER (Only shows if they don't have a card) --- */}
+        {/* BUY CARD BANNER */}
         {!linkedCard && (
           <div className="mb-8 p-6 rounded-2xl bg-gradient-to-r from-primary/20 to-purple-500/20 border border-primary/30 flex flex-col md:flex-row items-center justify-between gap-4 text-center md:text-left">
             <div>
@@ -225,14 +292,10 @@ const Dashboard = () => {
                 <CreditCard className="w-5 h-5" /> Get Your Physical Card
               </h3>
               <p className="text-sm text-muted-foreground mt-1">
-                Tap to share your profile instantly. No apps needed for the other person!
+                Tap to share your profile instantly. No apps needed!
               </p>
             </div>
-            <a
-              href="https://wa.me/+2348065545851?text=I am logged in and want to buy an NFC card." // CHANGE NUMBER HERE
-              target="_blank"
-              rel="noreferrer"
-            >
+            <a href="https://wa.me/234XXXXXXXXXX?text=I am logged in and want to buy an NFC card." target="_blank" rel="noreferrer">
               <Button className="bg-primary hover:bg-primary/90">Order Now</Button>
             </a>
           </div>
@@ -271,20 +334,80 @@ const Dashboard = () => {
           </div>
 
           <div className="space-y-4">
-            <div><label className="text-sm font-medium">Display Name</label><Input value={displayName} onChange={e => setDisplayName(e.target.value)} placeholder="John Doe" /></div>
-            <div><label className="text-sm font-medium">Bio</label><Textarea value={bio} onChange={e => setBio(e.target.value)} placeholder="Short bio..." /></div>
+            <div>
+              <label className="text-sm font-medium">Display Name</label>
+              <Input value={displayName} onChange={e => setDisplayName(e.target.value)} placeholder="John Doe" />
+            </div>
+
+            <div>
+              <div className="flex justify-between">
+                <label className="text-sm font-medium">Bio</label>
+                <span className={`text-xs ${bio.length > 50 ? 'text-orange-500' : 'text-muted-foreground'}`}>
+                  {bio.length}/50
+                </span>
+              </div>
+              {/* FIX BUG 4: Max Length 50 */}
+              <Textarea
+                value={bio}
+                onChange={e => setBio(e.target.value)}
+                placeholder="Short bio..."
+                maxLength={50} // HARD LIMIT
+                className="resize-none"
+              />
+            </div>
 
             <div className="border-t pt-4 space-y-4">
               <h3 className="font-semibold text-muted-foreground">Contact & Socials</h3>
-              <Input placeholder="Phone Number" value={phoneNumber} onChange={e => setPhoneNumber(e.target.value)} />
-              <Input placeholder="WhatsApp Link (wa.me/...)" value={whatsappLink} onChange={e => setWhatsappLink(e.target.value)} />
-              <Input placeholder="Instagram URL" value={instagramLink} onChange={e => setInstagramLink(e.target.value)} />
-              <Input placeholder="TikTok URL" value={tiktokLink} onChange={e => setTiktokLink(e.target.value)} />
+
+              <div>
+                <label className="text-sm font-medium">Phone Number</label>
+                {/* FIX BUG 3: Only numbers, max 11 */}
+                <Input
+                  value={phoneNumber}
+                  onChange={handlePhoneChange}
+                  placeholder="08012345678"
+                  maxLength={11}
+                />
+              </div>
+
+              <div>
+                <label className="text-sm font-medium">WhatsApp Link</label>
+                <Input placeholder="https://wa.me/234..." value={whatsappLink} onChange={e => setWhatsappLink(e.target.value)} />
+              </div>
+
+              <div>
+                <label className="text-sm font-medium">Instagram Link</label>
+                <Input placeholder="https://instagram.com/..." value={instagramLink} onChange={e => setInstagramLink(e.target.value)} />
+              </div>
+
+              <div>
+                <label className="text-sm font-medium">TikTok Link</label>
+                <Input placeholder="https://tiktok.com/..." value={tiktokLink} onChange={e => setTiktokLink(e.target.value)} />
+              </div>
             </div>
 
             {user && <div className="border-t pt-4"><CustomLinksManager userId={user.id} /></div>}
 
-            <Button onClick={handleSave} disabled={saving} className="w-full">
+            {/* PASSWORD UPDATE SECTION */}
+            <div className="border-t border-border pt-6 space-y-4">
+              <h3 className="font-semibold text-foreground flex items-center gap-2">
+                <Shield className="w-4 h-4" /> Security
+              </h3>
+              <div className="flex gap-2">
+                <Input
+                  type="password"
+                  placeholder="New password (min 6 chars)"
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                />
+                <Button onClick={handlePasswordUpdate} disabled={saving || !newPassword} variant="secondary">
+                  Update
+                </Button>
+              </div>
+            </div>
+
+            {/* FIX BUG 2: Disable save if no changes */}
+            <Button onClick={handleSave} disabled={saving || !hasChanges} className="w-full">
               {saving ? <><Loader2 className="animate-spin mr-2" /> Saving...</> : <><Save className="mr-2" /> Save Changes</>}
             </Button>
           </div>

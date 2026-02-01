@@ -11,6 +11,7 @@ import CardRoute from "./pages/CardRoute";
 import Admin from "./pages/Admin";
 import Demo from "./pages/Demo";
 import NotFound from "./pages/NotFound";
+import UpdatePassword from "./pages/UpdatePassword"; // <--- 1. IMPORT ADDED HERE
 
 const queryClient = new QueryClient();
 
@@ -23,11 +24,16 @@ const App = () => (
         <Routes>
           <Route path="/" element={<Index />} />
           <Route path="/auth" element={<Auth />} />
+
+          {/* <--- 2. ROUTE ADDED HERE */}
+          <Route path="/update-password" element={<UpdatePassword />} />
+
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/profile/:username" element={<PublicProfile />} />
           <Route path="/c/:cardId" element={<CardRoute />} />
           <Route path="/admin" element={<Admin />} />
           <Route path="/demo" element={<Demo />} />
+
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>
