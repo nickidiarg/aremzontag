@@ -16,7 +16,6 @@ import {
   Loader2,
   Copy,
   Check,
-  Shield,
   Upload,
   CreditCard
 } from "lucide-react";
@@ -64,10 +63,7 @@ const Dashboard = () => {
   const [instagramLink, setInstagramLink] = useState("");
   const [tiktokLink, setTiktokLink] = useState("");
 
-  // New Password State
-  const [newPassword, setNewPassword] = useState("");
-
-  // Track if changes were made (For Bug #2)
+  // Track if changes were made
   const [hasChanges, setHasChanges] = useState(false);
 
   // --- AUTO-SAVE LOGIC ---
@@ -80,7 +76,7 @@ const Dashboard = () => {
     localStorage.setItem("draft_instagramLink", instagramLink);
     localStorage.setItem("draft_tiktokLink", tiktokLink);
 
-    // Check if current input differs from saved DB profile (Bug #2 Fix)
+    // Check if current input differs from saved DB profile
     if (profile) {
       const isDifferent =
         displayName !== (profile.display_name || "") ||
@@ -129,7 +125,6 @@ const Dashboard = () => {
 
       if (data) {
         setProfile(data);
-        // Load from draft if exists, else DB
         if (!localStorage.getItem("draft_displayName")) setDisplayName(data.display_name || "");
         if (!localStorage.getItem("draft_bio")) setBio(data.bio || "");
         if (!localStorage.getItem("draft_avatarUrl")) setAvatarUrl(data.avatar_url || "");
@@ -145,7 +140,7 @@ const Dashboard = () => {
     }
   };
 
-  // --- VALIDATION HELPERS (Bug #3 & #5) ---
+  // --- VALIDATION HELPERS ---
   const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     // Only allow numbers and max 11 digits
     const val = e.target.value.replace(/\D/g, '').slice(0, 11);
@@ -176,12 +171,11 @@ const Dashboard = () => {
     try {
       const usernameToUse = profile?.username || `user_${user.id.slice(0, 6)}`;
 
-      // FIX: Added 'user_id' to match database schema
+      // FIX: Added 'as any' to allow saving without errors
       const { data, error } = await supabase
         .from("profiles")
         .upsert({
           id: user.id,
-          user_id: user.id, // <--- THIS WAS THE MISSING LINE
           username: usernameToUse,
           display_name: displayName,
           bio,
@@ -191,7 +185,7 @@ const Dashboard = () => {
           instagram_link: instagramLink,
           tiktok_link: tiktokLink,
           updated_at: new Date().toISOString()
-        })
+        } as any)
         .select()
         .single();
 
@@ -208,7 +202,7 @@ const Dashboard = () => {
         localStorage.removeItem("draft_instagramLink");
         localStorage.removeItem("draft_tiktokLink");
 
-        setHasChanges(false); // Disable button again
+        setHasChanges(false);
         toast({ title: "Saved!", description: "Profile updated successfully." });
       }
     } catch (error: any) {
@@ -216,23 +210,6 @@ const Dashboard = () => {
     } finally {
       setSaving(false);
     }
-  };
-
-  const handlePasswordUpdate = async () => {
-    if (!newPassword) return;
-    if (newPassword.length < 6) {
-      toast({ title: "Too short", description: "Password must be at least 6 characters", variant: "destructive" });
-      return;
-    }
-    setSaving(true);
-    const { error } = await supabase.auth.updateUser({ password: newPassword });
-    if (error) {
-      toast({ title: "Error", description: error.message, variant: "destructive" });
-    } else {
-      toast({ title: "Success", description: "Your password has been updated!" });
-      setNewPassword("");
-    }
-    setSaving(false);
   };
 
   const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -277,7 +254,7 @@ const Dashboard = () => {
       <header className="container mx-auto px-4 py-6 flex justify-between items-center">
         <Link to="/" className="flex items-center gap-2 font-bold text-xl"><Link2 className="w-6 h-6" /> AremzonTag</Link>
         <div className="flex gap-2">
-          {isAdmin && <Link to="/admin"><Button variant="secondary" size="sm"><Shield className="w-4 h-4 mr-2" />Admin</Button></Link>}
+          {isAdmin && <Link to="/admin"><Button variant="secondary" size="sm"><Upload className="w-4 h-4 mr-2" />Admin</Button></Link>}
           <Button variant="ghost" size="sm" onClick={() => { signOut(); navigate("/"); }}><LogOut className="w-4 h-4 mr-2" /> Sign Out</Button>
         </div>
       </header>
@@ -346,12 +323,11 @@ const Dashboard = () => {
                   {bio.length}/50
                 </span>
               </div>
-              {/* FIX BUG 4: Max Length 50 */}
               <Textarea
                 value={bio}
                 onChange={e => setBio(e.target.value)}
                 placeholder="Short bio..."
-                maxLength={50} // HARD LIMIT
+                maxLength={50}
                 className="resize-none"
               />
             </div>
@@ -361,7 +337,6 @@ const Dashboard = () => {
 
               <div>
                 <label className="text-sm font-medium">Phone Number</label>
-                {/* FIX BUG 3: Only numbers, max 11 */}
                 <Input
                   value={phoneNumber}
                   onChange={handlePhoneChange}
@@ -388,25 +363,6 @@ const Dashboard = () => {
 
             {user && <div className="border-t pt-4"><CustomLinksManager userId={user.id} /></div>}
 
-            {/* PASSWORD UPDATE SECTION */}
-            <div className="border-t border-border pt-6 space-y-4">
-              <h3 className="font-semibold text-foreground flex items-center gap-2">
-                <Shield className="w-4 h-4" /> Security
-              </h3>
-              <div className="flex gap-2">
-                <Input
-                  type="password"
-                  placeholder="New password (min 6 chars)"
-                  value={newPassword}
-                  onChange={(e) => setNewPassword(e.target.value)}
-                />
-                <Button onClick={handlePasswordUpdate} disabled={saving || !newPassword} variant="secondary">
-                  Update
-                </Button>
-              </div>
-            </div>
-
-            {/* FIX BUG 2: Disable save if no changes */}
             <Button onClick={handleSave} disabled={saving || !hasChanges} className="w-full">
               {saving ? <><Loader2 className="animate-spin mr-2" /> Saving...</> : <><Save className="mr-2" /> Save Changes</>}
             </Button>
