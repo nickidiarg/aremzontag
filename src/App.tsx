@@ -11,7 +11,8 @@ import CardRoute from "./pages/CardRoute";
 import Admin from "./pages/Admin";
 import Demo from "./pages/Demo";
 import NotFound from "./pages/NotFound";
-import UpdatePassword from "./pages/UpdatePassword"; // <--- 1. IMPORT ADDED HERE
+import UpdatePassword from "./pages/UpdatePassword";
+import ForgotPassword from "./pages/ForgotPassword"; // ⬅️ NEW IMPORT ADDED
 
 const queryClient = new QueryClient();
 
@@ -25,7 +26,8 @@ const App = () => (
           <Route path="/" element={<Index />} />
           <Route path="/auth" element={<Auth />} />
 
-          {/* <--- 2. ROUTE ADDED HERE */}
+          {/* ⬅️ NEW ROUTE ADDED HERE */}
+          <Route path="/forgot-password" element={<ForgotPassword />} />
           <Route path="/update-password" element={<UpdatePassword />} />
 
           <Route path="/dashboard" element={<Dashboard />} />
