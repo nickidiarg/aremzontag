@@ -12,7 +12,8 @@ import Admin from "./pages/Admin";
 import Demo from "./pages/Demo";
 import NotFound from "./pages/NotFound";
 import UpdatePassword from "./pages/UpdatePassword";
-import ForgotPassword from "./pages/ForgotPassword"; // ⬅️ NEW IMPORT ADDED
+import ForgotPassword from "./pages/ForgotPassword";
+import SupportButton from "@/components/SupportButton"; // ⬅️ IMPORT THIS
 
 const queryClient = new QueryClient();
 
@@ -25,20 +26,19 @@ const App = () => (
         <Routes>
           <Route path="/" element={<Index />} />
           <Route path="/auth" element={<Auth />} />
-
-          {/* ⬅️ NEW ROUTE ADDED HERE */}
           <Route path="/forgot-password" element={<ForgotPassword />} />
           <Route path="/update-password" element={<UpdatePassword />} />
-
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/profile/:username" element={<PublicProfile />} />
           <Route path="/c/:cardId" element={<CardRoute />} />
           <Route path="/admin" element={<Admin />} />
           <Route path="/demo" element={<Demo />} />
-
-          {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>
+
+        {/* ⬅️ ADD THE BUTTON HERE (It will float above everything) */}
+        <SupportButton />
+
       </BrowserRouter>
     </TooltipProvider>
   </QueryClientProvider>
