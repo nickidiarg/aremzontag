@@ -30,8 +30,8 @@ interface GeneratedCard {
 interface NfcCard {
   id: string;
   card_id: string;
-  secret_pin?: string; // Updated optional
-  pin?: string;        // Added to match DB
+  secret_pin?: string;
+  pin?: string;
   is_active: boolean;
   linked_user_id: string | null;
   claimed_at: string | null;
@@ -94,7 +94,6 @@ const InventoryTab = () => {
     setGenerating(true);
     const newCards: GeneratedCard[] = [];
 
-    // Generate unique IDs locally
     for (let i = 0; i < count; i++) {
       newCards.push({
         card_id: generateCardId(),
@@ -102,17 +101,16 @@ const InventoryTab = () => {
       });
     }
 
-    // FIX: Map 'secret_pin' to the database column 'pin'
     const { error } = await supabase.from("nfc_cards").insert(
       newCards.map((card) => ({
         card_id: card.card_id,
-        pin: card.secret_pin, // <--- THIS WAS THE FIX
+        pin: card.secret_pin,
+        secret_pin: card.secret_pin, // ⬅️ Added to satisfy TypeScript
         is_active: true,
-      }))
+      } as any)) // ⬅️ Tells TypeScript to relax and accept the data
     );
-
     if (error) {
-      console.error("Generate Error:", error); // Log actual error to console
+      console.error("Generate Error:", error);
       toast({
         title: "Error",
         description: error.message || "Failed to generate cards.",
@@ -135,7 +133,6 @@ const InventoryTab = () => {
   const handleUnclaimCard = async (cardId: string) => {
     setUnclaimingId(cardId);
 
-    // We update directly instead of using RPC if RPC doesn't exist
     const { error } = await supabase
       .from('nfc_cards')
       .update({
@@ -181,27 +178,44 @@ const InventoryTab = () => {
     });
   };
 
-  const downloadQRCode = (cardId: string) => {
-    const svg = document.getElementById(`qr-${cardId}`);
+  // --- UPGRADED HIGH-RES QR DOWNLOAD LOGIC ---
+  const downloadQRCode = (cardId: string, prefixId: string = "qr-") => {
+    const svg = document.getElementById(`${prefixId}${cardId}`);
     if (!svg) return;
 
-    const svgData = new XMLSerializer().serializeToString(svg);
+    // Clone the SVG so we don't change the one on the screen
+    const svgClone = svg.cloneNode(true) as SVGElement;
+
+    // Set massive dimensions for printing (1024x1024)
+    svgClone.setAttribute("width", "1024");
+    svgClone.setAttribute("height", "1024");
+
+    // Serialize and convert
+    const svgData = new XMLSerializer().serializeToString(svgClone);
     const canvas = document.createElement("canvas");
     const ctx = canvas.getContext("2d");
     const img = new Image();
 
     img.onload = () => {
-      canvas.width = img.width;
-      canvas.height = img.height;
-      ctx?.drawImage(img, 0, 0);
+      canvas.width = 1024;
+      canvas.height = 1024;
+
+      // Draw a pure white background behind the QR code
+      if (ctx) {
+        ctx.fillStyle = "white";
+        ctx.fillRect(0, 0, 1024, 1024);
+        ctx.drawImage(img, 0, 0, 1024, 1024);
+      }
+
       const pngFile = canvas.toDataURL("image/png");
       const downloadLink = document.createElement("a");
-      downloadLink.download = `qr-${cardId}.png`;
+      downloadLink.download = `AremzonTag-${cardId}.png`;
       downloadLink.href = pngFile;
       downloadLink.click();
     };
 
-    img.src = "data:image/svg+xml;base64," + btoa(svgData);
+    // Safely encode the SVG data
+    img.src = "data:image/svg+xml;base64," + btoa(unescape(encodeURIComponent(svgData)));
   };
 
   if (loading) {
@@ -326,13 +340,14 @@ const InventoryTab = () => {
                               id={`qr-${card.card_id}`}
                               value={`${baseUrl}/c/${card.card_id}`}
                               size={48}
-                              level="M"
+                              level="H"                // <--- ADDED FOR HIGH ERROR CORRECTION
+                              includeMargin={true}     // <--- ADDED FOR PRINTER MARGINS
                             />
                           </div>
                           <Button
                             variant="ghost"
                             size="icon"
-                            onClick={() => downloadQRCode(card.card_id)}
+                            onClick={() => downloadQRCode(card.card_id, "qr-")}
                           >
                             <Download className="w-4 h-4" />
                           </Button>
@@ -390,7 +405,6 @@ const InventoryTab = () => {
                   <TableCell className="font-mono text-primary">
                     {card.card_id}
                   </TableCell>
-                  {/* FIX: Display 'pin' from DB or 'secret_pin' if local */}
                   <TableCell className="font-mono">{card.pin || card.secret_pin}</TableCell>
                   <TableCell className="text-sm text-muted-foreground max-w-[200px] truncate">
                     {baseUrl}/c/{card.card_id}
@@ -424,31 +438,14 @@ const InventoryTab = () => {
                           id={`qr-all-${card.card_id}`}
                           value={`${baseUrl}/c/${card.card_id}`}
                           size={32}
-                          level="M"
+                          level="H"               // <--- ADDED FOR HIGH ERROR CORRECTION
+                          includeMargin={true}    // <--- ADDED FOR PRINTER MARGINS
                         />
                       </div>
                       <Button
                         variant="ghost"
                         size="icon"
-                        onClick={() => {
-                          const svg = document.getElementById(`qr-all-${card.card_id}`);
-                          if (!svg) return;
-                          const svgData = new XMLSerializer().serializeToString(svg);
-                          const canvas = document.createElement("canvas");
-                          const ctx = canvas.getContext("2d");
-                          const img = new Image();
-                          img.onload = () => {
-                            canvas.width = img.width;
-                            canvas.height = img.height;
-                            ctx?.drawImage(img, 0, 0);
-                            const pngFile = canvas.toDataURL("image/png");
-                            const downloadLink = document.createElement("a");
-                            downloadLink.download = `qr-${card.card_id}.png`;
-                            downloadLink.href = pngFile;
-                            downloadLink.click();
-                          };
-                          img.src = "data:image/svg+xml;base64," + btoa(svgData);
-                        }}
+                        onClick={() => downloadQRCode(card.card_id, "qr-all-")}
                         className="h-8 w-8"
                       >
                         <Download className="w-4 h-4" />
@@ -458,8 +455,8 @@ const InventoryTab = () => {
                   <TableCell>
                     <span
                       className={`px-2 py-1 rounded-full text-xs font-medium ${card.linked_user_id
-                          ? "bg-green-500/20 text-green-400"
-                          : "bg-blue-500/20 text-blue-400"
+                        ? "bg-green-500/20 text-green-400"
+                        : "bg-blue-500/20 text-blue-400"
                         }`}
                     >
                       {card.linked_user_id ? "Claimed" : "Available"}
